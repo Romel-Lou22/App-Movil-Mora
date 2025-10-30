@@ -1,65 +1,106 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+// Core
+import 'core/constants/app_colors.dart';
+import 'features/auth/data/datasources/auth_remote_datasource.dart';
+// Data
+import 'features/auth/data/repositories/auth_repository_impl.dart';
+// Domain
+import 'features/auth/domain/usecases/login_usecase.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+// Features
+import 'features/auth/presentation/screens/login_screen.dart';
+
+/// Widget principal de la aplicación EcoMora
 class EcoMoraApp extends StatelessWidget {
-  const EcoMoraApp({Key? key}) : super(key: key);
+  const EcoMoraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'EcoMora',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: const Color(0xFF7B2869),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF7B2869),
-          secondary: const Color(0xFF2E7D32),
-        ),
-        useMaterial3: true,
-      ),
-      home: const TemporalHomePage(),
-    );
-  }
-}
-
-class TemporalHomePage extends StatelessWidget {
-  const TemporalHomePage({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('EcoMora'),
-        backgroundColor: const Color(0xFF7B2869),
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(
-              Icons.eco,
-              size: 100,
-              color: Color(0xFF2E7D32),
-            ),
-            SizedBox(height: 20),
-            Text(
-              '🌾 EcoMora',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF7B2869),
+    return MultiProvider(
+      providers: [
+        // Provider de Autenticación
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(
+            loginUseCase: LoginUseCase(
+              AuthRepositoryImpl(
+                remoteDataSource: AuthRemoteDataSourceImpl(),
               ),
             ),
-            SizedBox(height: 10),
-            Text(
-              'App funcionando',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-          ],
+          ),
         ),
+
+        // TODO: Agregar más providers cuando los necesites:
+        // ChangeNotifierProvider(create: (_) => WeatherProvider(...)),
+        // ChangeNotifierProvider(create: (_) => AlertsProvider(...)),
+        // etc.
+      ],
+      child: MaterialApp(
+        title: 'EcoMora',
+        debugShowCheckedModeBanner: false,
+
+        // Tema de la aplicación
+        theme: ThemeData(
+          // Colores principales
+          primaryColor: AppColors.primary,
+          scaffoldBackgroundColor: AppColors.background,
+
+          // Color scheme
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: AppColors.primary,
+            secondary: AppColors.secondary,
+            error: AppColors.error,
+            background: AppColors.background,
+            surface: AppColors.surface,
+          ),
+
+          // AppBar theme
+          appBarTheme: const AppBarTheme(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            centerTitle: true,
+          ),
+
+          // Fuente predeterminada
+          fontFamily: 'Roboto',
+
+          // Text theme
+          textTheme: const TextTheme(
+            headlineLarge: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+            headlineMedium: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+            bodyLarge: TextStyle(
+              fontSize: 16,
+              color: AppColors.textPrimary,
+            ),
+            bodyMedium: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+
+          // Elevación predeterminada
+          useMaterial3: true,
+        ),
+
+        // Pantalla inicial
+        home: const LoginScreen(),
+
+        // TODO: Agregar rutas cuando tengas más pantallas
+        // routes: {
+        //   '/login': (context) => const LoginScreen(),
+        //   '/register': (context) => const RegisterScreen(),
+        //   '/home': (context) => const HomeScreen(),
+        // },
       ),
     );
   }
