@@ -1,6 +1,8 @@
+import 'package:appmora/features/auth/presentation/screens/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/config/routes/app_routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/validators.dart';
 import '../providers/auth_provider.dart';
@@ -59,12 +61,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (authProvider.isAuthenticated) {
       // Login exitoso - Navegar a Home
       // TODO: Implementar navegación cuando tengas HomeScreen
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('¡Bienvenido ${authProvider.user?.displayName}!'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
+
     } else if (authProvider.hasError) {
       // Mostrar error
       ScaffoldMessenger.of(context).showSnackBar(
@@ -88,10 +86,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// Navega a la pantalla de registro
   void _navigateToRegister() {
-    // TODO: Implementar cuando tengas RegisterScreen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Funcionalidad en desarrollo'),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>  RegisterScreen()
       ),
     );
   }

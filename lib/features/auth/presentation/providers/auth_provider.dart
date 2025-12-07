@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/usecases/login_usecase.dart';
+import '../../domain/usecases/register_usecase.dart';
+import '../../domain/usecases/logout_usecase.dart';
 import '../../../../core/errors/failures.dart';
 
 /// Estados posibles de la autenticación
@@ -16,13 +18,13 @@ enum AuthStatus {
 /// Usa ChangeNotifier de Provider para gestión de estado
 class AuthProvider extends ChangeNotifier {
   final LoginUseCase loginUseCase;
-  // TODO: Agregar más UseCases cuando los necesites:
-  // final LogoutUseCase logoutUseCase;
-  // final RegisterUseCase registerUseCase;
-  // final GetCurrentUserUseCase getCurrentUserUseCase;
+  final RegisterUseCase registerUseCase; // ✅ NUEVO
+  final LogoutUseCase logoutUseCase;
 
   AuthProvider({
     required this.loginUseCase,
+    required this.registerUseCase, // ✅ NUEVO
+    required this.logoutUseCase,
   });
 
   // === Estado ===
@@ -74,17 +76,66 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
+  /// Registra un nuevo usuario
+  /// ✅ NUEVO MÉTODO
+  Future<void> register({
+    required String email,
+    required String password,
+    String? fullName,
+    String? phone,
+  }) async {
+    // Cambiar estado a loading
+    _setStatus(AuthStatus.loading);
+    _errorMessage = null;
+
+    // Ejecutar el caso de uso
+    final result = await registerUseCase(
+      email: email,
+      password: password,
+      fullName: fullName,
+      phone: phone,
+    );
+
+    // Manejar el resultado
+    result.fold(
+      // Error (Left)
+          (failure) {
+        _setStatus(AuthStatus.error);
+        _errorMessage = failure.message;
+        _user = null;
+      },
+      // Éxito (Right)
+          (user) {
+        _setStatus(AuthStatus.authenticated);
+        _user = user;
+        _errorMessage = null;
+      },
+    );
+  }
+
   /// Cierra la sesión del usuario
   /// TODO: Implementar cuando tengamos LogoutUseCase
   Future<void> logout() async {
     _setStatus(AuthStatus.loading);
-
-    // Simular logout por ahora
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    _setStatus(AuthStatus.unauthenticated);
-    _user = null;
     _errorMessage = null;
+
+    // Ejecutar el caso de uso de logout
+    final result = await logoutUseCase();
+
+    // Manejar el resultado
+    result.fold(
+      // Error (Left)
+          (failure) {
+        _setStatus(AuthStatus.error);
+        _errorMessage = failure.message;
+      },
+      // Éxito (Right)
+          (_) {
+        _setStatus(AuthStatus.unauthenticated);
+        _user = null;
+        _errorMessage = null;
+      },
+    );
   }
 
   /// Verifica si hay un usuario autenticado al iniciar la app

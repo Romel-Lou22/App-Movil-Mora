@@ -39,6 +39,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     String? fullName,
+    String? phone,
   }) async {
     try {
       // Llamar al datasource para registrar
@@ -46,6 +47,7 @@ class AuthRepositoryImpl implements AuthRepository {
         email: email,
         password: password,
         fullName: fullName,
+        phone: phone,
       );
 
       // Convertir UserModel (Data) a User (Domain)

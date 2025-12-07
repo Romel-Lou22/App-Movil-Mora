@@ -17,6 +17,7 @@ abstract class AuthRemoteDataSource {
     required String email,
     required String password,
     String? fullName,
+    String? phone,
   });
 
   /// Cierra la sesión del usuario actual
@@ -67,13 +68,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String email,
     required String password,
     String? fullName,
+    String? phone
   }) async {
     try {
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
         data: {
-          if (fullName != null) 'full_name': fullName,
+          if (fullName != null && fullName.isNotEmpty) 'full_name': fullName,
+          if (phone != null && phone.isNotEmpty) 'phone': phone,
         },
       );
 

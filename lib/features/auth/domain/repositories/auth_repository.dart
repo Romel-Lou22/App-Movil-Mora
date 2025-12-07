@@ -23,6 +23,7 @@ abstract class AuthRepository {
     required String email,
     required String password,
     String? fullName,
+    String? phone
   });
 
   /// Cierra la sesión del usuario actual

@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/config/routes/app_routes.dart';
 // Core
 import 'core/constants/app_colors.dart';
-import 'features/auth/data/datasources/auth_remote_datasource.dart';
 // Data
+import 'features/auth/data/datasources/auth_remote_datasource.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 // Domain
 import 'features/auth/domain/usecases/login_usecase.dart';
+import 'features/auth/domain/usecases/register_usecase.dart';
+import 'features/auth/domain/usecases/logout_usecase.dart';
+// Providers
 import 'features/auth/presentation/providers/auth_provider.dart';
-// Features
+// Screens - Auth
 import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/auth/presentation/screens/register_screen.dart';
+// Screens - Home
+import 'features/home/presentation/screens/home_screen.dart';
 
 /// Widget principal de la aplicación EcoMora
 class EcoMoraApp extends StatelessWidget {
@@ -22,19 +29,25 @@ class EcoMoraApp extends StatelessWidget {
       providers: [
         // Provider de Autenticación
         ChangeNotifierProvider(
-          create: (_) => AuthProvider(
-            loginUseCase: LoginUseCase(
-              AuthRepositoryImpl(
-                remoteDataSource: AuthRemoteDataSourceImpl(),
-              ),
-            ),
-          ),
+          create: (_) {
+            // Crear una única instancia del repositorio
+            final repository = AuthRepositoryImpl(
+              remoteDataSource: AuthRemoteDataSourceImpl(),
+            );
+
+            // Crear el provider con ambos use cases
+            return AuthProvider(
+              loginUseCase: LoginUseCase(repository),
+              registerUseCase: RegisterUseCase(repository),
+              logoutUseCase: LogoutUseCase(repository),
+            );
+          },
         ),
 
         // TODO: Agregar más providers cuando los necesites:
         // ChangeNotifierProvider(create: (_) => WeatherProvider(...)),
         // ChangeNotifierProvider(create: (_) => AlertsProvider(...)),
-        // etc.
+        // ChangeNotifierProvider(create: (_) => ParcelasProvider(...)),
       ],
       child: MaterialApp(
         title: 'EcoMora',
@@ -51,13 +64,12 @@ class EcoMoraApp extends StatelessWidget {
             seedColor: AppColors.primary,
             secondary: AppColors.secondary,
             error: AppColors.error,
-            background: AppColors.background,
             surface: AppColors.surface,
           ),
 
           // AppBar theme
           appBarTheme: const AppBarTheme(
-            backgroundColor: AppColors.primary,
+            backgroundColor: AppColors.secondary,
             foregroundColor: Colors.white,
             elevation: 0,
             centerTitle: true,
@@ -92,15 +104,31 @@ class EcoMoraApp extends StatelessWidget {
           useMaterial3: true,
         ),
 
-        // Pantalla inicial
-        home: const LoginScreen(),
+        // Ruta inicial
+        initialRoute: AppRoutes.initial,
 
-        // TODO: Agregar rutas cuando tengas más pantallas
-        // routes: {
-        //   '/login': (context) => const LoginScreen(),
-        //   '/register': (context) => const RegisterScreen(),
-        //   '/home': (context) => const HomeScreen(),
-        // },
+        // Definición de rutas
+        routes: {
+          // === Rutas de Autenticación ===
+          AppRoutes.login: (context) => const LoginScreen(),
+          AppRoutes.register: (context) => const RegisterScreen(),
+
+          // === Rutas Principales ===
+          AppRoutes.home: (context) => const HomeScreen(),
+
+          // TODO: Agregar más rutas cuando crees las pantallas:
+          // AppRoutes.predictions: (context) => const PredictionsScreen(),
+          // AppRoutes.alerts: (context) => const AlertsScreen(),
+          // AppRoutes.parcelas: (context) => const ParcelasScreen(),
+          // AppRoutes.profile: (context) => const ProfileScreen(),
+        },
+
+        // Manejo de rutas desconocidas (opcional pero recomendado)
+        onUnknownRoute: (settings) {
+          return MaterialPageRoute(
+            builder: (context) => const LoginScreen(),
+          );
+        },
       ),
     );
   }
