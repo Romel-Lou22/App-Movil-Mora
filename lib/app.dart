@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:dio/dio.dart';
 
 import 'core/config/routes/app_routes.dart';
 // Core
@@ -13,6 +14,14 @@ import 'features/auth/domain/usecases/register_usecase.dart';
 import 'features/auth/domain/usecases/logout_usecase.dart';
 // Providers
 import 'features/auth/presentation/providers/auth_provider.dart';
+
+// ===== AGREGAR ESTOS IMPORTS =====
+import 'features/weather/data/datasources/openweather_datasource.dart';
+import 'features/weather/data/repositories/weather_repository_impl.dart';
+import 'features/weather/domain/usecases/get_current_weather_usecase.dart';
+import 'features/weather/presentation/providers/weather_provider.dart';
+// ==================================
+
 // Screens - Auth
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/register_screen.dart';
@@ -30,12 +39,10 @@ class EcoMoraApp extends StatelessWidget {
         // Provider de Autenticación
         ChangeNotifierProvider(
           create: (_) {
-            // Crear una única instancia del repositorio
             final repository = AuthRepositoryImpl(
               remoteDataSource: AuthRemoteDataSourceImpl(),
             );
 
-            // Crear el provider con ambos use cases
             return AuthProvider(
               loginUseCase: LoginUseCase(repository),
               registerUseCase: RegisterUseCase(repository),
@@ -44,10 +51,19 @@ class EcoMoraApp extends StatelessWidget {
           },
         ),
 
-        // TODO: Agregar más providers cuando los necesites:
-        // ChangeNotifierProvider(create: (_) => WeatherProvider(...)),
-        // ChangeNotifierProvider(create: (_) => AlertsProvider(...)),
-        // ChangeNotifierProvider(create: (_) => ParcelasProvider(...)),
+        // ===== AGREGAR ESTE PROVIDER =====
+        // Provider del Clima
+        ChangeNotifierProvider(
+          create: (_) {
+            final dio = Dio();
+            final dataSource = OpenWeatherDataSource(dio: dio);
+            final repository = WeatherRepositoryImpl(dataSource: dataSource);
+            final useCase = GetCurrentWeatherUseCase(repository: repository);
+
+            return WeatherProvider(getCurrentWeatherUseCase: useCase);
+          },
+        ),
+        // ==================================
       ],
       child: MaterialApp(
         title: 'EcoMora',
@@ -115,15 +131,9 @@ class EcoMoraApp extends StatelessWidget {
 
           // === Rutas Principales ===
           AppRoutes.home: (context) => const HomeScreen(),
-
-          // TODO: Agregar más rutas cuando crees las pantallas:
-          // AppRoutes.predictions: (context) => const PredictionsScreen(),
-          // AppRoutes.alerts: (context) => const AlertsScreen(),
-          // AppRoutes.parcelas: (context) => const ParcelasScreen(),
-          // AppRoutes.profile: (context) => const ProfileScreen(),
         },
 
-        // Manejo de rutas desconocidas (opcional pero recomendado)
+        // Manejo de rutas desconocidas
         onUnknownRoute: (settings) {
           return MaterialPageRoute(
             builder: (context) => const LoginScreen(),

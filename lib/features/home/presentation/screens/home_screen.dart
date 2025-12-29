@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/config/routes/app_routes.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../widgets/current_weather_card.dart';
 import '../widgets/home_drawer.dart';
+import 'package:provider/provider.dart';
+import '../../../weather/presentation/providers/weather_provider.dart';
 
 /// Pantalla principal (Home/Dashboard) de EcoMora
 /// Muestra resumen del clima, alertas y estado de la parcela seleccionada
@@ -15,6 +18,15 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0; // Índice del bottom navigation bar
+  // ===== AGREGAR ESTE MÉTODO =====
+  @override
+  void initState() {
+    super.initState();
+    // Cargar datos del clima al iniciar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<WeatherProvider>().fetchCurrentWeather();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -194,89 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Card de clima actual
   Widget _buildCurrentWeatherCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'CURRENT WEATHER',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              // Icono de clima
-              Icon(
-                Icons.wb_cloudy_outlined,
-                size: 64,
-                color: AppColors.textSecondary.withOpacity(0.6),
-              ),
-              const SizedBox(width: 16),
-
-              // Descripción del clima
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Partially',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      'cloudy',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Humedad: 75%',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Temperatura
-              const Text(
-                '18.5°C',
-                style: TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+   return  const CurrentWeatherCard();
   }
 
   /// Card de alertas activas
