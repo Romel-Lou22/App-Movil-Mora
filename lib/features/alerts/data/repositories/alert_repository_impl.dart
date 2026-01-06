@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/cupertino.dart';
 import '../../domain/entities/alert.dart';
 import '../../domain/repositories/alert_repository.dart';
 import '../datasources/alert_remote_datasource.dart';
@@ -209,6 +210,8 @@ class AlertRepositoryImpl implements AlertRepository {
   ///
   /// Convierte excepciones técnicas en mensajes amigables para el usuario
   String _handleError(Object error) {
+    debugPrint('🔴 ERROR ORIGINAL: $error');
+    debugPrint('🔴 STACK TRACE: ${StackTrace.current}');
     final errorMessage = error.toString();
 
     // Errores de red

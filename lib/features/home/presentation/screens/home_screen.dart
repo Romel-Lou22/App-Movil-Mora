@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/config/routes/app_routes.dart';
 import '../../../../core/constants/app_colors.dart';
+// ========== CAMBIO 1: AGREGAR ESTE IMPORT ==========
+import '../../../alerts/presentation/screens/alerts_screen.dart';
+import '../../../weather/presentation/providers/weather_provider.dart';
 import '../widgets/current_weather_card.dart';
 import '../widgets/home_drawer.dart';
-import 'package:provider/provider.dart';
-import '../../../weather/presentation/providers/weather_provider.dart';
+// ===================================================
 
-/// Pantalla principal (Home/Dashboard) de EcoMora
-/// Muestra resumen del clima, alertas y estado de la parcela seleccionada
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -17,12 +18,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0; // Índice del bottom navigation bar
-  // ===== AGREGAR ESTE MÉTODO =====
+  int _selectedIndex = 0;
+
+  // ========== CAMBIO 2: AGREGAR ESTAS VARIABLES ==========
+  String _currentParcelaId = 'parcela_norte_001'; // TODO: Obtener de provider
+  String _currentParcelaName = 'Parcela Norte'; // TODO: Obtener de provider
+  // =======================================================
+
   @override
   void initState() {
     super.initState();
-    // Cargar datos del clima al iniciar
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WeatherProvider>().fetchCurrentWeather();
     });
@@ -32,59 +37,38 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-
-      // AppBar personalizado
       appBar: _buildAppBar(),
-
       drawer: const HomeDrawer(),
-
-      // Cuerpo principalf
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Información de la parcela
               _buildParcelaInfo(),
-
               const SizedBox(height: 16),
-
-              // Card: Current Weather
               _buildCurrentWeatherCard(),
-
               const SizedBox(height: 16),
-
-              // Card: Active Alerts
               _buildActiveAlertsCard(),
-
               const SizedBox(height: 16),
-
-              // Card: Quick Summary
               _buildQuickSummaryCard(),
-
               const SizedBox(height: 24),
-
-              // Botón: Ver predicciones detalladas
               _buildPredictionsButton(),
-
               const SizedBox(height: 24),
             ],
           ),
         ),
       ),
-
-      // Bottom Navigation Bar
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  /// AppBar personalizado con menú, logo, dropdown y notificaciones
+  // ========== CAMBIO 4: ACTUALIZAR ESTE MÉTODO ==========
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: AppColors.secondary,
       elevation: 0,
-      leading: Builder(  // ✅ AGREGAR BUILDER AQUÍ
+      leading: Builder(
         builder: (BuildContext context) {
           return IconButton(
             icon: const Icon(Icons.menu, color: Colors.white),
@@ -104,21 +88,27 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       centerTitle: true,
       actions: [
-        // Dropdown de parcelas
         _buildParcelasDropdown(),
 
-        // Icono de notificaciones
+        // AQUÍ ESTÁ EL CAMBIO ⬇️
         IconButton(
           icon: const Icon(Icons.notifications_outlined, color: Colors.white),
           onPressed: () {
-            Navigator.pushNamed(context, AppRoutes.alerts);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AlertsScreen(
+
+                ),
+              ),
+            );
           },
         ),
       ],
     );
   }
+  // =======================================================
 
-  /// Dropdown para seleccionar parcela
   Widget _buildParcelasDropdown() {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -148,25 +138,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
         onChanged: (value) {
-          // TODO: Cambiar parcela seleccionada
           setState(() {});
         },
       ),
     );
   }
 
-  /// Widget de información de la parcela
   Widget _buildParcelaInfo() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Row(
           children: [
-            Icon(
-              Icons.location_on,
-              color: Colors.red,
-              size: 28,
-            ),
+            Icon(Icons.location_on, color: Colors.red, size: 28),
             SizedBox(width: 8),
             Text(
               'Parcela Norte',
@@ -204,128 +188,130 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Card de clima actual
   Widget _buildCurrentWeatherCard() {
-   return  const CurrentWeatherCard();
+    return const CurrentWeatherCard();
   }
 
-  /// Card de alertas activas
+  // ========== CAMBIO 5: ACTUALIZAR ESTE MÉTODO (OPCIONAL) ==========
   Widget _buildActiveAlertsCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.orange.shade400,
-          width: 3,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: const Text(
-              'ACTIVE ALERTS',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.orange,
-                letterSpacing: 1,
-              ),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AlertsScreen(
             ),
           ),
-
-          // Contenido de la alerta
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(
-              children: [
-                // Icono de alerta
-                Icon(
-                  Icons.ac_unit,
-                  size: 48,
-                  color: Colors.orange.shade700,
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.orange.shade400,
+            width: 3,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: const Text(
+                'ACTIVE ALERTS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.orange,
+                  letterSpacing: 1,
                 ),
-                const SizedBox(width: 16),
-
-                // Texto de alerta
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.ac_unit,
+                    size: 48,
+                    color: Colors.orange.shade700,
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Riesgo de',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'helada',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'En 18 horas',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Column(
                     children: [
                       Text(
-                        'Riesgo de',
+                        'Ver',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 14,
+                          color: AppColors.secondary,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
                         ),
                       ),
                       Text(
-                        'helada',
+                        'recomendación',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 14,
+                          color: AppColors.secondary,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
                         ),
                       ),
                       SizedBox(height: 4),
-                      Text(
-                        'En 18 horas',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                        ),
+                      Icon(
+                        Icons.arrow_forward,
+                        color: AppColors.secondary,
+                        size: 24,
                       ),
                     ],
                   ),
-                ),
-
-                // Botón "Ver recomendación"
-                const Column(
-                  children: [
-                    Text(
-                      'Ver',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      'recomendación',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Icon(
-                      Icons.arrow_forward,
-                      color: AppColors.secondary,
-                      size: 24,
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+  // ==================================================================
 
-  /// Card de resumen rápido
   Widget _buildQuickSummaryCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -353,28 +339,20 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // Temperatura
           _buildSummaryRow(
             icon: Icons.thermostat_outlined,
             iconColor: Colors.red,
             label: 'Temp',
             value: '15°C mañana',
           ),
-
           const SizedBox(height: 16),
-
-          // Humedad
           _buildSummaryRow(
             icon: Icons.water_drop_outlined,
             iconColor: Colors.blue,
             label: 'Hum.',
             value: '80% mañana',
           ),
-
           const SizedBox(height: 16),
-
-          // Nutrientes
           _buildSummaryRow(
             icon: Icons.eco_outlined,
             iconColor: Colors.green,
@@ -392,7 +370,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Fila de resumen (reutilizable)
   Widget _buildSummaryRow({
     required IconData icon,
     required Color iconColor,
@@ -429,7 +406,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Botón para ver predicciones detalladas
   Widget _buildPredictionsButton() {
     return SizedBox(
       width: double.infinity,
@@ -458,7 +434,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Bottom Navigation Bar
+  // ========== CAMBIO 3: ACTUALIZAR ESTE MÉTODO ==========
   Widget _buildBottomNavigationBar() {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
@@ -473,7 +449,6 @@ class _HomeScreenState extends State<HomeScreen> {
           _selectedIndex = index;
         });
 
-        // Navegar según el índice
         switch (index) {
           case 0:
           // Ya estamos en Home
@@ -482,7 +457,15 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.pushNamed(context, AppRoutes.predictions);
             break;
           case 2:
-            Navigator.pushNamed(context, AppRoutes.alerts);
+          // AQUÍ ESTÁ EL CAMBIO ⬇️
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AlertsScreen(
+
+                ),
+              ),
+            );
             break;
           case 3:
             Navigator.pushNamed(context, AppRoutes.parcelas);
@@ -521,4 +504,5 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+// =======================================================
 }

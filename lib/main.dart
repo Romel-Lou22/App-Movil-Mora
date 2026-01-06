@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app.dart';
 import 'core/config/supabase_config.dart';
