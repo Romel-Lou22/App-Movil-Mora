@@ -326,16 +326,59 @@ class AlertRemoteDataSource {
     try {
       final response = await _supabase
           .from('alertas_historial')
-          .select('id')
+          .select('id, fecha_alerta, severidad') // Solo los campos necesarios
           .eq('parcela_id', parcelaId)
           .eq('vista', false);
 
-      final alerts = (response as List)
-          .map((json) => AlertModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      if (response == null || response is! List) {
+        return 0;
+      }
 
-      // Contar solo las activas (no expiradas)
-      return alerts.where((alert) => alert.isActive).length;
+      // Contar alertas activas manualmente sin convertir a modelo completo
+      int count = 0;
+      final now = DateTime.now();
+
+      for (var item in response) {
+        try {
+          // Validar que tenga los campos mínimos
+          if (item['fecha_alerta'] == null) continue;
+
+          final fechaAlerta = DateTime.parse(item['fecha_alerta'] as String);
+          final severidad = item['severidad'] as String?;
+
+          // Verificar si la alerta está activa (no expirada)
+          final difference = now.difference(fechaAlerta);
+
+          bool isActive = false;
+          if (severidad == null) {
+            isActive = difference.inHours < 72; // 3 días por defecto
+          } else {
+            switch (severidad.toLowerCase()) {
+              case 'critica':
+                isActive = difference.inHours < 24;
+                break;
+              case 'alta':
+                isActive = difference.inHours < 48;
+                break;
+              case 'media':
+                isActive = difference.inHours < 72;
+                break;
+              case 'baja':
+                isActive = difference.inDays < 7;
+                break;
+              default:
+                isActive = difference.inHours < 72;
+            }
+          }
+
+          if (isActive) count++;
+        } catch (e) {
+          // Si hay error parseando una alerta, continuar con la siguiente
+          continue;
+        }
+      }
+
+      return count;
     } catch (e) {
       throw Exception('Error al obtener conteo de alertas: $e');
     }

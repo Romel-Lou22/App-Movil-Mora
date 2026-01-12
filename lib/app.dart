@@ -5,7 +5,19 @@ import 'package:provider/provider.dart';
 import 'core/config/routes/app_routes.dart';
 // Core
 import 'core/constants/app_colors.dart';
-// ===== ALERTS IMPORTS - AGREGAR ESTOS =====
+
+// ===== PREDICTIONS IMPORTS =====
+import 'features/predictions/data/datasources/openweather_datasource.dart' as predictions_ds;
+import 'features/predictions/data/datasources/huggingface_datasource.dart';
+import 'features/predictions/data/repositories/prediction_repository_impl.dart';
+import 'features/predictions/domain/usecases/get_soil_prediction_usecase.dart';
+import 'features/predictions/presentation/providers/prediction_provider.dart';
+// Screens - Predictions
+import 'features/predictions/presentation/screens/predictions_screen.dart';
+
+import 'features/profile/presentation/screens/grafica_screen.dart';
+
+// ===== ALERTS IMPORTS =====
 import 'features/alerts/data/datasources/alert_remote_datasource.dart';
 import 'features/alerts/data/repositories/alert_repository_impl.dart';
 import 'features/alerts/domain/usecases/create_alert_usecase.dart';
@@ -14,8 +26,25 @@ import 'features/alerts/domain/usecases/get_active_alerts_usecase.dart';
 import 'features/alerts/domain/usecases/get_alerts_history_usecase.dart';
 import 'features/alerts/domain/usecases/mark_alert_as_read_usecase.dart';
 import 'features/alerts/presentation/providers/alert_provider.dart';
-// Screens - Alerts - AGREGAR ESTE
+// Screens - Alerts
 import 'features/alerts/presentation/screens/alerts_screen.dart';
+
+// ===== PARCELAS IMPORTS - ✅ AGREGADO =====
+import 'features/parcelas/data/datasources/parcela_remote_datasource.dart';
+import 'features/parcelas/data/repositories/parcela_repository_impl.dart';
+import 'features/parcelas/domain/entities/parcela.dart';
+import 'features/parcelas/domain/usecases/create_parcela_usecase.dart';
+import 'features/parcelas/domain/usecases/delete_parcela_usecase.dart';
+import 'features/parcelas/domain/usecases/get_parcela_by_id_usecase.dart';
+import 'features/parcelas/domain/usecases/get_parcelas_usecase.dart';
+import 'features/parcelas/domain/usecases/update_parcela_usecase.dart';
+import 'features/parcelas/presentation/providers/parcela_provider.dart';
+// Screens - Parcelas
+import 'features/parcelas/presentation/screens/parcelas_list_screen.dart';
+import 'features/parcelas/presentation/screens/add_parcela_screen.dart';
+import 'features/parcelas/presentation/screens/edit_parcela_screen.dart';
+// ===============================================
+
 // ===== AUTH IMPORTS =====
 import 'features/auth/data/datasources/auth_remote_datasource.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
@@ -23,14 +52,15 @@ import 'features/auth/domain/usecases/login_usecase.dart';
 import 'features/auth/domain/usecases/logout_usecase.dart';
 import 'features/auth/domain/usecases/register_usecase.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
-// ==========================================
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 // Screens - Auth
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/register_screen.dart';
+
 // Screens - Home
 import 'features/home/presentation/screens/home_screen.dart';
+
 // ===== WEATHER IMPORTS =====
 import 'features/weather/data/datasources/openweather_datasource.dart';
 import 'features/weather/data/repositories/weather_repository_impl.dart';
@@ -72,22 +102,19 @@ class EcoMoraApp extends StatelessWidget {
           },
         ),
 
-        // ===== ALERTS PROVIDER - AGREGAR ESTE BLOQUE =====
+        // ===== ALERTS PROVIDER =====
         ChangeNotifierProvider(
           create: (_) {
-            // Crear instancias de las dependencias
             final dio = Dio();
             final dataSource = AlertRemoteDataSource();
             final repository = AlertRepositoryImpl(remoteDataSource: dataSource);
 
-            // Crear los use cases
             final evaluateThresholdsUseCase = EvaluateThresholdsUseCase(repository);
             final getActiveAlertsUseCase = GetActiveAlertsUseCase(repository);
             final getAlertsHistoryUseCase = GetAlertsHistoryUseCase(repository);
             final markAlertAsReadUseCase = MarkAlertAsReadUseCase(repository);
             final createAlertUseCase = CreateAlertUseCase(repository);
 
-            // Crear el provider con todos los use cases
             return AlertProvider(
               evaluateThresholdsUseCase: evaluateThresholdsUseCase,
               getActiveAlertsUseCase: getActiveAlertsUseCase,
@@ -97,7 +124,58 @@ class EcoMoraApp extends StatelessWidget {
             );
           },
         ),
-        // ================================================
+
+        // ===== PREDICTIONS PROVIDER =====
+        ChangeNotifierProvider(
+          create: (_) {
+            final dio = Dio();
+            final openWeatherDataSource = predictions_ds.OpenWeatherDataSource(dio: dio);
+            final huggingFaceDataSource = HuggingFaceDataSource(dio: dio);
+
+            final repository = PredictionRepositoryImpl(
+              openWeatherDataSource: openWeatherDataSource,
+              huggingFaceDataSource: huggingFaceDataSource,
+            );
+
+            final getSoilPredictionUseCase = GetSoilPredictionUseCase(
+              repository: repository,
+            );
+
+            return PredictionProvider(
+              getSoilPredictionUseCase: getSoilPredictionUseCase,
+            );
+          },
+        ),
+
+        // ===== PARCELAS PROVIDER - ✅ AGREGADO =====
+        ChangeNotifierProvider(
+          create: (_) {
+            // Crear DataSource
+            final dataSource = ParcelaRemoteDataSourceImpl();
+
+            // Crear Repository
+            final repository = ParcelaRepositoryImpl(
+              remoteDataSource: dataSource,
+            );
+
+            // Crear UseCases
+            final getParcelasUseCase = GetParcelasUseCase(repository);
+            final getParcelaByIdUseCase = GetParcelaByIdUseCase(repository);
+            final createParcelaUseCase = CreateParcelaUseCase(repository);
+            final updateParcelaUseCase = UpdateParcelaUseCase(repository);
+            final deleteParcelaUseCase = DeleteParcelaUseCase(repository);
+
+            // Crear Provider con todos los UseCases
+            return ParcelaProvider(
+              getParcelasUseCase: getParcelasUseCase,
+              getParcelaByIdUseCase: getParcelaByIdUseCase,
+              createParcelaUseCase: createParcelaUseCase,
+              updateParcelaUseCase: updateParcelaUseCase,
+              deleteParcelaUseCase: deleteParcelaUseCase,
+            );
+          },
+        ),
+        // ====================================================
       ],
       child: MaterialApp(
         title: 'EcoMora',
@@ -166,11 +244,21 @@ class EcoMoraApp extends StatelessWidget {
           // === Rutas Principales ===
           AppRoutes.home: (context) => const HomeScreen(),
 
-          // === Ruta de Alertas - AGREGAR ESTA LÍNEA ===
-          AppRoutes.alerts: (context) => const AlertsScreen(
+          // === Ruta de Alertas ===
+          AppRoutes.alerts: (context) => const AlertsScreen(),
 
-          ),
-          // ===========================================
+          // === Rutas de Parcelas - ✅ AGREGADO ===
+          AppRoutes.parcelas: (context) => const ParcelasListScreen(),
+          AppRoutes.addParcela: (context) => const AddParcelaScreen(),
+          AppRoutes.editParcela: (context) {
+            // Obtener la parcela pasada como argumento
+            final parcela = ModalRoute.of(context)!.settings.arguments;
+            return EditParcelaScreen(parcela: parcela as Parcela);
+          },
+          // ================================================
+
+          AppRoutes.predictions: (context) => const PredictionsScreen(),
+          AppRoutes.profile: (context) => const GraficaScreen(),
         },
 
         // Manejo de rutas desconocidas

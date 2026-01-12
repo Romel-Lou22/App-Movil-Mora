@@ -497,9 +497,9 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'Parcela',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          activeIcon: Icon(Icons.person),
-          label: 'Perfil',
+          icon: Icon(Icons.insights_outlined),
+          activeIcon: Icon(Icons.insights),
+          label: 'Grafico',
         ),
       ],
     );
