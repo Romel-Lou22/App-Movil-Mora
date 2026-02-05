@@ -1,213 +1,23 @@
-import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/alert_model.dart';
 import '../../../../core/config/supabase_config.dart';
+import '../../domain/entities/alert.dart';
 
-/// DataSource que maneja todas las operaciones relacionadas con alertas
-///
-/// Responsabilidades:
-/// - Consumir el Random Forest API de Hugging Face
-/// - Leer datos históricos de Supabase
-/// - Guardar alertas en Supabase
-/// - Consultar alertas activas e historial (con filtros por fecha)
-/// - Marcar alertas como vistas
+/// DataSource: Solo operaciones Supabase para alertas
 class AlertRemoteDataSource {
-  final Dio _dio;
   final SupabaseClient _supabase;
 
-  // Configuración del Random Forest API
-  static const String _randomForestBaseUrl =
-      'https://roca22-intelligent-alerts-rf.hf.space';
+  AlertRemoteDataSource({SupabaseClient? supabase})
+      : _supabase = supabase ?? SupabaseConfig.supabase;
 
-  AlertRemoteDataSource({
-    Dio? dio,
-    SupabaseClient? supabase,
-  })  : _dio = dio ?? Dio(),
-        _supabase = supabase ?? SupabaseConfig.supabase;
-
-  /// Evalúa los datos de una parcela y genera alertas usando el Random Forest
-  ///
-  /// Pasos:
-  /// 1. Obtiene los últimos datos de la parcela (pH, N, P, K, temp, humedad)
-  /// 2. Envía los datos al modelo Random Forest
-  /// 3. Procesa las alertas detectadas
-  /// 4. Guarda las nuevas alertas en Supabase
-  ///
-  /// Retorna la lista de alertas creadas
-  Future<List<AlertModel>> evaluateAndCreateAlerts({
+  /// Fetch genérico (Opción B)
+  /// - onlyUnread: vista = false
+  /// - tipo: filtra por tipo_alerta
+  /// - startDate/endDate: rango por fecha_alerta (endDate inclusivo por día)
+  Future<List<AlertModel>> fetchAlerts({
     required String parcelaId,
-    required double temperatura,
-    required double humedad,
-  }) async {
-    try {
-      // 1. Obtener los últimos datos de la parcela desde Supabase
-      final datosHistoricos = await _getLatestDatosHistoricos(parcelaId);
-
-      if (datosHistoricos == null) {
-        throw Exception(
-          'No se encontraron datos históricos para la parcela $parcelaId',
-        );
-      }
-
-      // 2. Preparar los datos para el Random Forest
-      final requestData = {
-        'pH': datosHistoricos['ph'] ?? 6.0,
-        'temperatura_C': temperatura,
-        'humedad_suelo_pct': humedad,
-        'N_ppm': datosHistoricos['nitrogeno'] ?? 0.0,
-        'P_ppm': datosHistoricos['fosforo'] ?? 0.0,
-        'K_ppm': datosHistoricos['potasio'] ?? 0.0,
-      };
-
-      // 3. Llamar al Random Forest
-      final alertasDetectadas = await _callRandomForestAPI(requestData);
-
-      // 4. Convertir las alertas detectadas a modelos
-      final alertModels = <AlertModel>[];
-
-      for (var alertaData in alertasDetectadas) {
-        final alertModel = AlertModel.fromRandomForestResponse(
-          parcelaId: parcelaId,
-          tipo: alertaData['tipo'] as String,
-          recomendacion: alertaData['recomendacion'] as String,
-          valoresInput: {
-            'pH': requestData['pH'] as double,
-            'temperatura_C': requestData['temperatura_C'] as double,
-            'humedad_suelo_%': requestData['humedad_suelo_pct'] as double,
-            'N_ppm': requestData['N_ppm'] as double,
-            'P_ppm': requestData['P_ppm'] as double,
-            'K_ppm': requestData['K_ppm'] as double,
-          },
-        );
-        alertModels.add(alertModel);
-      }
-
-      // 5. Guardar las alertas en Supabase (solo si hay alertas)
-      if (alertModels.isNotEmpty) {
-        await _saveAlertsToSupabase(alertModels);
-      }
-
-      return alertModels;
-    } on DioException catch (e) {
-      throw Exception('Error de red al evaluar alertas: ${e.message}');
-    } catch (e) {
-      throw Exception('Error al evaluar alertas: $e');
-    }
-  }
-
-  /// Obtiene los últimos datos históricos de una parcela
-  Future<Map<String, dynamic>?> _getLatestDatosHistoricos(
-      String parcelaId,
-      ) async {
-    try {
-      final response = await _supabase
-          .from('datos_historicos')
-          .select('ph, nitrogeno, fosforo, potasio, humedad')
-          .eq('parcela_id', parcelaId)
-          .order('fecha_hora', ascending: false)
-          .limit(1)
-          .maybeSingle();
-
-      return response;
-    } catch (e) {
-      throw Exception(
-        'Error al obtener datos históricos de Supabase: $e',
-      );
-    }
-  }
-
-  /// Llama al API de Random Forest en Hugging Face
-  Future<List<Map<String, dynamic>>> _callRandomForestAPI(
-      Map<String, dynamic> data,
-      ) async {
-    try {
-      final response = await _dio.post(
-        '$_randomForestBaseUrl/predict',
-        data: data,
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-          validateStatus: (status) => status! < 500,
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data as Map<String, dynamic>;
-        final alertasDetectadas = responseData['alertas_detectadas'] as List;
-
-        return alertasDetectadas
-            .map((e) => e as Map<String, dynamic>)
-            .toList();
-      } else {
-        throw Exception(
-          'Error del Random Forest API: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      throw Exception('Error al llamar al Random Forest API: $e');
-    }
-  }
-
-  /// Guarda múltiples alertas en Supabase
-  Future<void> _saveAlertsToSupabase(List<AlertModel> alerts) async {
-    try {
-      final alertsJson = alerts.map((a) => a.toJsonForInsert()).toList();
-
-      await _supabase.from('alertas_historial').insert(alertsJson);
-    } catch (e) {
-      throw Exception('Error al guardar alertas en Supabase: $e');
-    }
-  }
-
-  /// Crea una alerta manual en Supabase
-  Future<AlertModel> createAlert(AlertModel alert) async {
-    try {
-      final response = await _supabase
-          .from('alertas_historial')
-          .insert(alert.toJsonForInsert())
-          .select()
-          .single();
-
-      return AlertModel.fromJson(response);
-    } catch (e) {
-      throw Exception('Error al crear alerta: $e');
-    }
-  }
-
-  /// Obtiene las alertas activas de una parcela
-  ///
-  /// Filtra por:
-  /// - Parcela específica
-  /// - Alertas no vistas (vista = false)
-  /// - Ordenadas por fecha (más recientes primero)
-  Future<List<AlertModel>> getActiveAlerts(String parcelaId) async {
-    try {
-      final response = await _supabase
-          .from('alertas_historial')
-          .select()
-          .eq('parcela_id', parcelaId)
-          .eq('vista', false)
-          .order('fecha_alerta', ascending: false);
-
-      final alerts = (response as List)
-          .map((json) => AlertModel.fromJson(json as Map<String, dynamic>))
-          .toList();
-
-      // Filtrar solo las alertas que siguen activas (no expiradas)
-      return alerts.where((alert) => alert.isActive).toList();
-    } catch (e) {
-      throw Exception('Error al obtener alertas activas: $e');
-    }
-  }
-
-  /// Obtiene el historial de alertas con filtros opcionales por fecha
-  ///
-  /// Parámetros:
-  /// - [parcelaId]: ID de la parcela
-  /// - [startDate]: Fecha inicio (opcional)
-  /// - [endDate]: Fecha fin (opcional)
-  /// - [limit]: Cantidad máxima de alertas (default: 50)
-  Future<List<AlertModel>> getAlertsHistory({
-    required String parcelaId,
+    bool onlyUnread = false,
+    AlertType? tipo,
     DateTime? startDate,
     DateTime? endDate,
     int limit = 50,
@@ -218,16 +28,23 @@ class AlertRemoteDataSource {
           .select()
           .eq('parcela_id', parcelaId);
 
-      // Aplicar filtro de fecha inicio si existe
+      if (onlyUnread) {
+        query = query.eq('vista', false);
+      }
+
+      if (tipo != null) {
+        query = query.eq('tipo_alerta', tipo.dbEnumValue);
+      }
+
       if (startDate != null) {
         query = query.gte('fecha_alerta', startDate.toIso8601String());
       }
 
-      // Aplicar filtro de fecha fin si existe
       if (endDate != null) {
-        // Agregar 1 día para incluir todo el día final
-        final endDateTime = endDate.add(const Duration(days: 1));
-        query = query.lt('fecha_alerta', endDateTime.toIso8601String());
+        // endDate inclusivo (cubre todo el día final)
+        final endExclusive = DateTime(endDate.year, endDate.month, endDate.day)
+            .add(const Duration(days: 1));
+        query = query.lt('fecha_alerta', endExclusive.toIso8601String());
       }
 
       final response = await query
@@ -238,62 +55,28 @@ class AlertRemoteDataSource {
           .map((json) => AlertModel.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      throw Exception('Error al obtener historial de alertas: $e');
+      throw Exception('Error al consultar alertas: $e');
     }
   }
 
-  /// Obtiene las alertas del día de hoy
-  Future<List<AlertModel>> getTodayAlerts(String parcelaId) async {
-    final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
+  /// Inserta muchas alertas (batch) y retorna lo insertado
+  Future<List<AlertModel>> insertAlerts(List<AlertModel> alerts) async {
+    try {
+      if (alerts.isEmpty) return [];
 
-    return await getAlertsHistory(
-      parcelaId: parcelaId,
-      startDate: startOfDay,
-      endDate: startOfDay,
-      limit: 100,
-    );
-  }
+      final payload = alerts.map((a) => a.toJsonForInsert()).toList();
 
-  /// Obtiene las alertas de la última semana
-  Future<List<AlertModel>> getLastWeekAlerts(String parcelaId) async {
-    final now = DateTime.now();
-    final oneWeekAgo = now.subtract(const Duration(days: 7));
+      final response = await _supabase
+          .from('alertas_historial')
+          .insert(payload)
+          .select();
 
-    return await getAlertsHistory(
-      parcelaId: parcelaId,
-      startDate: oneWeekAgo,
-      endDate: now,
-      limit: 100,
-    );
-  }
-
-  /// Obtiene las alertas del último mes
-  Future<List<AlertModel>> getLastMonthAlerts(String parcelaId) async {
-    final now = DateTime.now();
-    final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
-
-    return await getAlertsHistory(
-      parcelaId: parcelaId,
-      startDate: oneMonthAgo,
-      endDate: now,
-      limit: 200,
-    );
-  }
-
-  /// Obtiene alertas de un día específico
-  Future<List<AlertModel>> getAlertsByDate({
-    required String parcelaId,
-    required DateTime date,
-  }) async {
-    final startOfDay = DateTime(date.year, date.month, date.day);
-
-    return await getAlertsHistory(
-      parcelaId: parcelaId,
-      startDate: startOfDay,
-      endDate: startOfDay,
-      limit: 100,
-    );
+      return (response as List)
+          .map((json) => AlertModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw Exception('Error al insertar alertas: $e');
+    }
   }
 
   /// Marca una alerta como vista
@@ -308,7 +91,7 @@ class AlertRemoteDataSource {
     }
   }
 
-  /// Marca todas las alertas de una parcela como vistas
+  /// Marca todas las alertas como vistas para una parcela
   Future<void> markAllAlertsAsRead(String parcelaId) async {
     try {
       await _supabase
@@ -317,65 +100,56 @@ class AlertRemoteDataSource {
           .eq('parcela_id', parcelaId)
           .eq('vista', false);
     } catch (e) {
-      throw Exception('Error al marcar todas las alertas como leídas: $e');
+      throw Exception('Error al marcar todas como leídas: $e');
     }
   }
 
-  /// Obtiene el conteo de alertas activas sin leer
+  /// Conteo de alertas sin leer (y activas según expiración local)
   Future<int> getUnreadAlertsCount(String parcelaId) async {
     try {
       final response = await _supabase
           .from('alertas_historial')
-          .select('id, fecha_alerta, severidad') // Solo los campos necesarios
+          .select('fecha_alerta, severidad, vista')
           .eq('parcela_id', parcelaId)
           .eq('vista', false);
 
-      if (response == null || response is! List) {
-        return 0;
-      }
+      if (response is! List) return 0;
 
-      // Contar alertas activas manualmente sin convertir a modelo completo
       int count = 0;
       final now = DateTime.now();
 
-      for (var item in response) {
-        try {
-          // Validar que tenga los campos mínimos
-          if (item['fecha_alerta'] == null) continue;
+      for (final item in response) {
+        final fechaRaw = item['fecha_alerta'] as String?;
+        if (fechaRaw == null) continue;
 
-          final fechaAlerta = DateTime.parse(item['fecha_alerta'] as String);
-          final severidad = item['severidad'] as String?;
+        final fecha = DateTime.parse(fechaRaw);
+        final diff = now.difference(fecha);
 
-          // Verificar si la alerta está activa (no expirada)
-          final difference = now.difference(fechaAlerta);
+        final sevStr = item['severidad'] as String?;
+        bool isActive;
 
-          bool isActive = false;
-          if (severidad == null) {
-            isActive = difference.inHours < 72; // 3 días por defecto
-          } else {
-            switch (severidad.toLowerCase()) {
-              case 'critica':
-                isActive = difference.inHours < 24;
-                break;
-              case 'alta':
-                isActive = difference.inHours < 48;
-                break;
-              case 'media':
-                isActive = difference.inHours < 72;
-                break;
-              case 'baja':
-                isActive = difference.inDays < 7;
-                break;
-              default:
-                isActive = difference.inHours < 72;
-            }
+        if (sevStr == null) {
+          isActive = diff.inHours < 72;
+        } else {
+          switch (sevStr.toLowerCase()) {
+            case 'critica':
+              isActive = diff.inHours < 24;
+              break;
+            case 'alta':
+              isActive = diff.inHours < 48;
+              break;
+            case 'media':
+              isActive = diff.inHours < 72;
+              break;
+            case 'baja':
+              isActive = diff.inDays < 7;
+              break;
+            default:
+              isActive = diff.inHours < 72;
           }
-
-          if (isActive) count++;
-        } catch (e) {
-          // Si hay error parseando una alerta, continuar con la siguiente
-          continue;
         }
+
+        if (isActive) count++;
       }
 
       return count;
@@ -384,23 +158,91 @@ class AlertRemoteDataSource {
     }
   }
 
-  /// Elimina una alerta específica
+  /// (Opcional) Eliminar alerta (si lo usas luego)
   Future<void> deleteAlert(String alertId) async {
     try {
-      await _supabase
-          .from('alertas_historial')
-          .delete()
-          .eq('id', alertId);
+      await _supabase.from('alertas_historial').delete().eq('id', alertId);
     } catch (e) {
       throw Exception('Error al eliminar alerta: $e');
     }
   }
 
-  /// Obtiene alertas por tipo específico
+  // ==== Wrappers compatibles con tu código actual (si aún los usas) ====
+
+  Future<List<AlertModel>> getActiveAlerts(String parcelaId) async {
+    final alerts = await fetchAlerts(
+      parcelaId: parcelaId,
+      onlyUnread: true,
+      limit: 200,
+    );
+    return alerts.where((a) => a.isActive).toList();
+  }
+
+  Future<List<AlertModel>> getAlertsHistory({
+    required String parcelaId,
+    DateTime? startDate,
+    DateTime? endDate,
+    int limit = 50,
+  }) {
+    return fetchAlerts(
+      parcelaId: parcelaId,
+      startDate: startDate,
+      endDate: endDate,
+      limit: limit,
+    );
+  }
+
+  Future<List<AlertModel>> getTodayAlerts(String parcelaId) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    return getAlertsHistory(
+      parcelaId: parcelaId,
+      startDate: start,
+      endDate: start,
+      limit: 100,
+    );
+  }
+
+  Future<List<AlertModel>> getLastWeekAlerts(String parcelaId) {
+    final now = DateTime.now();
+    return getAlertsHistory(
+      parcelaId: parcelaId,
+      startDate: now.subtract(const Duration(days: 7)),
+      endDate: now,
+      limit: 100,
+    );
+  }
+
+  Future<List<AlertModel>> getLastMonthAlerts(String parcelaId) {
+    final now = DateTime.now();
+    final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
+    return getAlertsHistory(
+      parcelaId: parcelaId,
+      startDate: oneMonthAgo,
+      endDate: now,
+      limit: 200,
+    );
+  }
+
+  Future<List<AlertModel>> getAlertsByDate({
+    required String parcelaId,
+    required DateTime date,
+  }) {
+    final start = DateTime(date.year, date.month, date.day);
+    return getAlertsHistory(
+      parcelaId: parcelaId,
+      startDate: start,
+      endDate: start,
+      limit: 100,
+    );
+  }
+
   Future<List<AlertModel>> getAlertsByType({
     required String parcelaId,
     required String tipoAlerta,
   }) async {
+    // Si todavía te llega como String, lo soportamos aquí.
+    // Idealmente esto debería ser AlertType y usar tipo.dbValue.
     try {
       final response = await _supabase
           .from('alertas_historial')
@@ -408,7 +250,7 @@ class AlertRemoteDataSource {
           .eq('parcela_id', parcelaId)
           .eq('tipo_alerta', tipoAlerta)
           .order('fecha_alerta', ascending: false)
-          .limit(20);
+          .limit(50);
 
       return (response as List)
           .map((json) => AlertModel.fromJson(json as Map<String, dynamic>))

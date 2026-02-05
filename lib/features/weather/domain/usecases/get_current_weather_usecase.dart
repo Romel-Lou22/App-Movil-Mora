@@ -13,7 +13,8 @@ class GetCurrentWeatherUseCase {
 
   /// Ejecuta el caso de uso
   /// Retorna Either con error (Left) o datos (Right)
-  Future<Either<String, Weather>> call() async {
-    return await repository.getCurrentWeather();
+  Future<Either<String, Weather>> call({required double lat, required double lon}) async {
+    return await repository.getCurrentWeather(lat: lat, lon: lon);
   }
+
 }

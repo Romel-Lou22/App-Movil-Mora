@@ -2,66 +2,70 @@ import 'package:dartz/dartz.dart';
 import '../entities/alert.dart';
 import '../repositories/alert_repository.dart';
 
-/// Use Case para obtener las alertas activas de una parcela
-///
-/// Responsabilidad única: Obtener alertas que están activas (no vistas y no expiradas)
-/// para mostrar en la UI
+/// Use Case para obtener alertas activas (no vistas y no expiradas) de una parcela
 class GetActiveAlertsUseCase {
   final AlertRepository repository;
 
   GetActiveAlertsUseCase(this.repository);
 
-  /// Ejecuta la obtención de alertas activas
-  ///
-  /// Parámetros:
-  /// - [parcelaId]: ID de la parcela
-  ///
-  /// Filtra:
-  /// - Alertas no marcadas como vistas
-  /// - Alertas no expiradas (según su severidad)
-  ///
-  /// Ordenadas por fecha (más recientes primero)
-  ///
-  /// Retorna:
-  /// - Left: Mensaje de error
-  /// - Right: Lista de alertas activas (puede estar vacía)
-  Future<Either<String, List<Alert>>> call(String parcelaId) async {
-    // Validación
-    if (parcelaId.isEmpty) {
-      return const Left('ID de parcela inválido');
-    }
+  Future<Either<String, List<Alert>>> call(
+      String parcelaId, {
+        int limit = 50,
+      }) async {
+    if (parcelaId.isEmpty) return const Left('ID de parcela inválido');
+    if (limit <= 0) return const Left('Límite debe ser mayor a 0');
+    if (limit > 200) return const Left('Límite máximo es 200 alertas');
 
-    // Obtener alertas activas
-    final result = await repository.getActiveAlerts(parcelaId);
+    final result = await repository.fetchAlerts(
+      parcelaId: parcelaId,
+      onlyUnread: true, // vista = false
+      limit: limit,
+    );
 
-    // Ordenar por fecha (más reciente primero) y severidad
     return result.fold(
-          (error) => Left(error),
+      Left.new,
           (alerts) {
-        // Ordenar primero por vista (no vistas primero), luego por fecha
-        final sortedAlerts = List<Alert>.from(alerts)
-          ..sort((a, b) {
-            // Primero: alertas no vistas
-            if (!a.vista && b.vista) return -1;
-            if (a.vista && !b.vista) return 1;
+        // ✅ Filtrar SOLO activas (no expiradas)
+        final active = alerts.where((a) => a.isActive).toList();
 
-            // Luego: por fecha (más reciente primero)
-            return b.fechaAlerta.compareTo(a.fechaAlerta);
-          });
+        // ✅ Orden: severidad desc (critica -> baja) y fecha desc
+        active.sort((a, b) {
+          final sevCmp = _compareSeverityDesc(a.severidad, b.severidad);
+          if (sevCmp != 0) return sevCmp;
+          return b.fechaAlerta.compareTo(a.fechaAlerta);
+        });
 
-        return Right(sortedAlerts);
+        return Right(active);
       },
     );
   }
 
-  /// Obtiene solo el conteo de alertas activas sin leer
-  ///
-  /// Útil para mostrar badges o notificaciones
   Future<Either<String, int>> getCount(String parcelaId) async {
-    if (parcelaId.isEmpty) {
-      return const Left('ID de parcela inválido');
+    if (parcelaId.isEmpty) return const Left('ID de parcela inválido');
+    return repository.getUnreadAlertsCount(parcelaId);
+  }
+
+  int _compareSeverityDesc(AlertSeverity? a, AlertSeverity? b) {
+    if (a == null && b == null) return 0;
+    if (a == null) return 1;  // null al final
+    if (b == null) return -1;
+
+    int rank(AlertSeverity s) {
+      switch (s) {
+        case AlertSeverity.critica:
+          return 4;
+        case AlertSeverity.alta:
+          return 3;
+        case AlertSeverity.media:
+          return 2;
+        case AlertSeverity.baja:
+          return 1;
+      }
     }
 
-    return await repository.getUnreadAlertsCount(parcelaId);
+    // ✅ Descendente: 4 primero, 1 último
+    return rank(b).compareTo(rank(a)) * -1;
+    // alternativa más clara:
+    // return rank(b) < rank(a) ? -1 : (rank(b) > rank(a) ? 1 : 0);
   }
 }

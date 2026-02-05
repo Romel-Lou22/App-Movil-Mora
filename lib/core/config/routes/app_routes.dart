@@ -4,6 +4,11 @@ class AppRoutes {
   // Constructor privado para evitar instanciación
   AppRoutes._();
 
+  // === Ruta de Splash - ✅ AGREGADO ===
+
+  /// Ruta del splash screen (pantalla de carga inicial)
+  static const String splash = '/';
+
   // === Rutas de Autenticación ===
 
   /// Ruta de login
@@ -14,6 +19,11 @@ class AppRoutes {
 
   /// Ruta de recuperación de contraseña
   static const String forgotPassword = '/forgot-password';
+
+  //===carga de datos inicial===
+
+  static const String loading = '/loading';
+
 
   // === Rutas Principales ===
 
@@ -49,8 +59,8 @@ class AppRoutes {
   /// Ruta de configuración
   static const String settings = '/settings';
 
-  // === Ruta Inicial ===
+  // === Ruta Inicial - ✅ CAMBIADO ===
 
-  /// Ruta inicial de la aplicación (login)
-  static const String initial = login;
+  /// Ruta inicial de la aplicación (splash screen)
+  static const String initial = splash; // ← Cambiado de login a splash
 }

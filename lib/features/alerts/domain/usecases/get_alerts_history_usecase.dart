@@ -2,53 +2,28 @@ import 'package:dartz/dartz.dart';
 import '../entities/alert.dart';
 import '../repositories/alert_repository.dart';
 
-/// Use Case para obtener el historial completo de alertas
-///
-/// Responsabilidad única: Obtener el historial de alertas con filtros por fecha
+/// Use Case para obtener el historial de alertas (Opción B)
 class GetAlertsHistoryUseCase {
   final AlertRepository repository;
 
   GetAlertsHistoryUseCase(this.repository);
 
-  /// Ejecuta la obtención del historial de alertas con filtros opcionales
-  ///
-  /// Parámetros:
-  /// - [parcelaId]: ID de la parcela
-  /// - [startDate]: Fecha inicio del rango (opcional)
-  /// - [endDate]: Fecha fin del rango (opcional)
-  /// - [limit]: Cantidad máxima de alertas (default: 50)
-  ///
-  /// Retorna todas las alertas ordenadas por fecha (más recientes primero)
-  ///
-  /// Retorna:
-  /// - Left: Mensaje de error
-  /// - Right: Lista completa de alertas históricas
+  /// Historial completo (sin filtrar por vista)
   Future<Either<String, List<Alert>>> call({
     required String parcelaId,
     DateTime? startDate,
     DateTime? endDate,
     int limit = 50,
   }) async {
-    // Validaciones
-    if (parcelaId.isEmpty) {
-      return const Left('ID de parcela inválido');
-    }
+    if (parcelaId.isEmpty) return const Left('ID de parcela inválido');
+    if (limit <= 0) return const Left('Límite debe ser mayor a 0');
+    if (limit > 200) return const Left('Límite máximo es 200 alertas');
 
-    if (limit <= 0) {
-      return const Left('Límite debe ser mayor a 0');
-    }
-
-    if (limit > 200) {
-      return const Left('Límite máximo es 200 alertas');
-    }
-
-    // Validar que startDate no sea después de endDate
     if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
       return const Left('La fecha de inicio no puede ser posterior a la fecha de fin');
     }
 
-    // Obtener historial
-    return await repository.getAlertsHistory(
+    return repository.fetchAlerts(
       parcelaId: parcelaId,
       startDate: startDate,
       endDate: endDate,
@@ -56,157 +31,163 @@ class GetAlertsHistoryUseCase {
     );
   }
 
-  /// Obtiene las alertas del día de hoy
-  ///
-  /// Atajo rápido para ver las alertas de hoy
+  /// Alertas del día de hoy (incluye todo el día)
   Future<Either<String, List<Alert>>> fetchToday(String parcelaId) async {
-    if (parcelaId.isEmpty) {
-      return const Left('ID de parcela inválido');
-    }
+    if (parcelaId.isEmpty) return const Left('ID de parcela inválido');
 
-    return await repository.getTodayAlerts(parcelaId);
+    final now = DateTime.now();
+    final day = _dayStart(now);
+
+    return repository.fetchAlerts(
+      parcelaId: parcelaId,
+      startDate: day,
+      endDate: day, // ✅ end inclusivo (el datasource incluye el día completo)
+      limit: 200,
+    );
   }
 
-  /// Obtiene las alertas de la última semana
-  ///
-  /// Atajo rápido para ver alertas de los últimos 7 días
+  /// Últimos 7 días incluyendo hoy
   Future<Either<String, List<Alert>>> fetchLastWeek(String parcelaId) async {
-    if (parcelaId.isEmpty) {
-      return const Left('ID de parcela inválido');
-    }
+    if (parcelaId.isEmpty) return const Left('ID de parcela inválido');
 
-    return await repository.getLastWeekAlerts(parcelaId);
+    final today = _dayStart(DateTime.now());
+    final start = today.subtract(const Duration(days: 6)); // ✅ hoy + 6 días atrás
+
+    return repository.fetchAlerts(
+      parcelaId: parcelaId,
+      startDate: start,
+      endDate: today, // ✅ end inclusivo
+      limit: 200,
+    );
   }
 
-  /// Obtiene las alertas del último mes
-  ///
-  /// Atajo rápido para ver alertas de los últimos 30 días
+  /// Últimos 30 días incluyendo hoy
   Future<Either<String, List<Alert>>> fetchLastMonth(String parcelaId) async {
-    if (parcelaId.isEmpty) {
-      return const Left('ID de parcela inválido');
-    }
+    if (parcelaId.isEmpty) return const Left('ID de parcela inválido');
 
-    return await repository.getLastMonthAlerts(parcelaId);
+    final today = _dayStart(DateTime.now());
+    final start = today.subtract(const Duration(days: 29)); // ✅ hoy + 29 días atrás
+
+    return repository.fetchAlerts(
+      parcelaId: parcelaId,
+      startDate: start,
+      endDate: today, // ✅ end inclusivo
+      limit: 200,
+    );
   }
 
-  /// Obtiene alertas de un día específico
-  ///
-  /// Útil cuando el usuario selecciona una fecha del calendario
+  /// Alertas de un día específico (incluye todo el día)
   Future<Either<String, List<Alert>>> fetchByDate({
     required String parcelaId,
     required DateTime date,
   }) async {
-    if (parcelaId.isEmpty) {
-      return const Left('ID de parcela inválido');
-    }
+    if (parcelaId.isEmpty) return const Left('ID de parcela inválido');
 
-    return await repository.getAlertsByDate(
+    final day = _dayStart(date);
+
+    return repository.fetchAlerts(
       parcelaId: parcelaId,
-      date: date,
+      startDate: day,
+      endDate: day, // ✅ end inclusivo
+      limit: 200,
     );
   }
 
-  /// Obtiene alertas por rango de fechas personalizado
-  ///
-  /// Permite al usuario seleccionar desde qué fecha hasta qué fecha
+  /// Rango por fechas (INCLUYE el día endDate completo)
   Future<Either<String, List<Alert>>> fetchByDateRange({
     required String parcelaId,
     required DateTime startDate,
     required DateTime endDate,
   }) async {
-    if (parcelaId.isEmpty) {
-      return const Left('ID de parcela inválido');
-    }
+    if (parcelaId.isEmpty) return const Left('ID de parcela inválido');
 
-    if (startDate.isAfter(endDate)) {
+    final start = _dayStart(startDate);
+    final end = _dayStart(endDate); // ✅ end inclusivo
+
+    if (start.isAfter(end)) {
       return const Left('La fecha de inicio no puede ser posterior a la fecha de fin');
     }
 
-    return await repository.getAlertsHistory(
+    return repository.fetchAlerts(
       parcelaId: parcelaId,
-      startDate: startDate,
-      endDate: endDate,
-      limit: 200, // Más límite para rangos personalizados
+      startDate: start,
+      endDate: end,
+      limit: 200,
     );
   }
 
-  /// Obtiene el historial filtrado por tipo de alerta
-  ///
-  /// Útil para ver solo alertas de pH, temperatura, etc.
+
+  /// Historial filtrado por tipo
   Future<Either<String, List<Alert>>> getByType({
     required String parcelaId,
-    required String tipoAlerta,
+    required AlertType tipoAlerta,
+    DateTime? startDate,
+    DateTime? endDate,
+    int limit = 200,
   }) async {
-    if (parcelaId.isEmpty) {
-      return const Left('ID de parcela inválido');
-    }
+    if (parcelaId.isEmpty) return const Left('ID de parcela inválido');
 
-    if (tipoAlerta.isEmpty) {
-      return const Left('Tipo de alerta inválido');
-    }
-
-    return await repository.getAlertsByType(
+    return repository.fetchAlerts(
       parcelaId: parcelaId,
-      tipoAlerta: tipoAlerta,
+      type: tipoAlerta,
+      startDate: startDate,
+      endDate: endDate,
+      limit: limit,
     );
   }
 
-  /// Agrupa las alertas por fecha para mostrar en secciones
-  ///
-  /// Retorna un Map<String, List<Alert>> donde la key es la fecha
-  /// Ejemplo: {"Hoy": [...], "Ayer": [...], "28 Dic 2024": [...]}
+  /// Agrupa por fecha (Hoy/Ayer/Fecha)
   Map<String, List<Alert>> groupByDate(List<Alert> alerts) {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = _dayStart(now);
     final yesterday = today.subtract(const Duration(days: 1));
 
     final grouped = <String, List<Alert>>{};
+    final months = [
+      '', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+    ];
 
-    for (var alert in alerts) {
-      final alertDate = DateTime(
-        alert.fechaAlerta.year,
-        alert.fechaAlerta.month,
-        alert.fechaAlerta.day,
-      );
+    for (final alert in alerts) {
+      final local = alert.fechaAlerta.toLocal();
+      final alertDay = _dayStart(local);
 
-      String dateKey;
-      if (alertDate == today) {
-        dateKey = 'Hoy';
-      } else if (alertDate == yesterday) {
-        dateKey = 'Ayer';
+      final String key;
+      if (alertDay == today) {
+        key = 'Hoy';
+      } else if (alertDay == yesterday) {
+        key = 'Ayer';
       } else {
-        // Formato: "28 Dic 2024"
-        final months = [
-          '', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-          'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-        ];
-        dateKey = '${alertDate.day} ${months[alertDate.month]} ${alertDate.year}';
+        key = '${alertDay.day} ${months[alertDay.month]} ${alertDay.year}';
       }
 
-      grouped.putIfAbsent(dateKey, () => []);
-      grouped[dateKey]!.add(alert);
+      grouped.putIfAbsent(key, () => <Alert>[]);
+      grouped[key]!.add(alert);
     }
 
     return grouped;
   }
 
-  /// Agrupa las alertas por tipo para estadísticas
-  ///
-  /// Retorna un Map<String, int> con el conteo de cada tipo
-  /// Ejemplo: {"ph_bajo": 5, "temp_alta": 3, ...}
-  Map<String, int> groupByType(List<Alert> alerts) {
-    final grouped = <String, int>{};
-
-    for (var alert in alerts) {
+  /// Agrupa por tipo (enum) para estadísticas
+  Map<AlertType, int> groupByType(List<Alert> alerts) {
+    final grouped = <AlertType, int>{};
+    for (final alert in alerts) {
       grouped[alert.tipoAlerta] = (grouped[alert.tipoAlerta] ?? 0) + 1;
     }
-
     return grouped;
   }
 
-  /// Obtiene un resumen de alertas por mes
-  ///
-  /// Retorna Map<String, int> con formato "Dic 2024": cantidad
+  /// Si necesitas keys string para UI/gráficos:
+  Map<String, int> groupByTypeDbValue(List<Alert> alerts) {
+    final grouped = <String, int>{};
+    for (final alert in alerts) {
+      final key = alert.tipoAlerta.dbValue;
+      grouped[key] = (grouped[key] ?? 0) + 1;
+    }
+    return grouped;
+  }
+
+  /// Resumen por mes (Ej: "Ene 2026")
   Map<String, int> groupByMonth(List<Alert> alerts) {
     final grouped = <String, int>{};
     final months = [
@@ -214,11 +195,14 @@ class GetAlertsHistoryUseCase {
       'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
     ];
 
-    for (var alert in alerts) {
-      final key = '${months[alert.fechaAlerta.month]} ${alert.fechaAlerta.year}';
+    for (final alert in alerts) {
+      final local = alert.fechaAlerta.toLocal();
+      final key = '${months[local.month]} ${local.year}';
       grouped[key] = (grouped[key] ?? 0) + 1;
     }
 
     return grouped;
   }
+
+  DateTime _dayStart(DateTime d) => DateTime(d.year, d.month, d.day);
 }

@@ -29,44 +29,14 @@ class _ParcelasListScreenState extends State<ParcelasListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: _buildAppBar(),
+
       body: _buildBody(),
       floatingActionButton: _buildFAB(),
     );
   }
 
   /// AppBar con título y botón de cerrar
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      title: const Text('Mis Parcelas'),
-      backgroundColor: AppColors.secondary,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      actions: [
-        Consumer<ParcelaProvider>(
-          builder: (context, provider, child) {
-            if (provider.hasParcelas) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Chip(
-                  label: Text(
-                    '${provider.cantidadParcelas}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  backgroundColor: AppColors.primary,
-                  padding: EdgeInsets.zero,
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-      ],
-    );
-  }
+
 
   /// Cuerpo principal de la pantalla
   Widget _buildBody() {

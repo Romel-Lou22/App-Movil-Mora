@@ -11,9 +11,7 @@ class OpenWeatherDataSource {
   static const String _baseUrl = 'https://api.openweathermap.org/data/2.5';
   static const String _apiKey = 'f3cf409a368f5d9b5ffbd8049bcfd53b';
 
-  // Coordenadas fijas de Tisaleo, Ecuador
-  static const String _lat = '-1.34627';
-  static const String _lon = '-78.66877';
+
 
   OpenWeatherDataSource({Dio? dio}) : _dio = dio ?? Dio();
 
@@ -21,16 +19,16 @@ class OpenWeatherDataSource {
   ///
   /// Retorna un [WeatherModel] con los datos actuales
   /// Lanza una excepción si la petición falla
-  Future<WeatherModel> getCurrentWeather() async {
+  Future<WeatherModel> getCurrentWeather({required double lat, required double lon}) async {
     try {
       final response = await _dio.get(
         '$_baseUrl/weather',
         queryParameters: {
-          'lat': _lat,
-          'lon': _lon,
+          'lat': lat,
+          'lon': lon,
           'appid': _apiKey,
-          'units': 'metric', // Para obtener temperatura en Celsius
-          'lang': 'es', // Descripciones en español
+          'units': 'metric',
+          'lang': 'es',
         },
       );
 
@@ -45,4 +43,5 @@ class OpenWeatherDataSource {
       throw Exception('Error inesperado: $e');
     }
   }
+
 }

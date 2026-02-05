@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/config/routes/app_routes.dart';
-// Core
 import 'core/constants/app_colors.dart';
 
+// ===== SPLASH IMPORTS =====
+import 'features/splash/presentation/screens/splash_screen.dart';
+
 // ===== PREDICTIONS IMPORTS =====
+import 'features/alerts/data/datasources/alert_engine_remote_datasource.dart';
+import 'features/alerts/data/repositories/alert_engine_repository_impl.dart';
 import 'features/predictions/data/datasources/openweather_datasource.dart' as predictions_ds;
 import 'features/predictions/data/datasources/huggingface_datasource.dart';
 import 'features/predictions/data/repositories/prediction_repository_impl.dart';
 import 'features/predictions/domain/usecases/get_soil_prediction_usecase.dart';
 import 'features/predictions/presentation/providers/prediction_provider.dart';
-// Screens - Predictions
 import 'features/predictions/presentation/screens/predictions_screen.dart';
 
 import 'features/profile/presentation/screens/grafica_screen.dart';
@@ -20,16 +23,14 @@ import 'features/profile/presentation/screens/grafica_screen.dart';
 // ===== ALERTS IMPORTS =====
 import 'features/alerts/data/datasources/alert_remote_datasource.dart';
 import 'features/alerts/data/repositories/alert_repository_impl.dart';
-import 'features/alerts/domain/usecases/create_alert_usecase.dart';
 import 'features/alerts/domain/usecases/evaluate_thresholds_usecase.dart';
 import 'features/alerts/domain/usecases/get_active_alerts_usecase.dart';
 import 'features/alerts/domain/usecases/get_alerts_history_usecase.dart';
 import 'features/alerts/domain/usecases/mark_alert_as_read_usecase.dart';
 import 'features/alerts/presentation/providers/alert_provider.dart';
-// Screens - Alerts
 import 'features/alerts/presentation/screens/alerts_screen.dart';
 
-// ===== PARCELAS IMPORTS - ✅ AGREGADO =====
+// ===== PARCELAS IMPORTS =====
 import 'features/parcelas/data/datasources/parcela_remote_datasource.dart';
 import 'features/parcelas/data/repositories/parcela_repository_impl.dart';
 import 'features/parcelas/domain/entities/parcela.dart';
@@ -39,11 +40,9 @@ import 'features/parcelas/domain/usecases/get_parcela_by_id_usecase.dart';
 import 'features/parcelas/domain/usecases/get_parcelas_usecase.dart';
 import 'features/parcelas/domain/usecases/update_parcela_usecase.dart';
 import 'features/parcelas/presentation/providers/parcela_provider.dart';
-// Screens - Parcelas
 import 'features/parcelas/presentation/screens/parcelas_list_screen.dart';
 import 'features/parcelas/presentation/screens/add_parcela_screen.dart';
 import 'features/parcelas/presentation/screens/edit_parcela_screen.dart';
-// ===============================================
 
 // ===== AUTH IMPORTS =====
 import 'features/auth/data/datasources/auth_remote_datasource.dart';
@@ -54,12 +53,15 @@ import 'features/auth/domain/usecases/register_usecase.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-// Screens - Auth
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/register_screen.dart';
 
-// Screens - Home
+// ===== HOME IMPORTS =====
 import 'features/home/presentation/screens/home_screen.dart';
+import 'features/home/presentation/screens/main_shell_screen.dart';
+
+//==Loading Screen Imports==
+import 'features/loading/presentation/screens/data_loading_screen.dart';
 
 // ===== WEATHER IMPORTS =====
 import 'features/weather/data/datasources/openweather_datasource.dart';
@@ -73,6 +75,8 @@ class EcoMoraApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🏗️ [APP] Construyendo EcoMoraApp con MultiProvider');
+
     return MultiProvider(
       providers: [
         // ===== AUTH PROVIDER =====
@@ -106,21 +110,20 @@ class EcoMoraApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) {
             final dio = Dio();
-            final dataSource = AlertRemoteDataSource();
-            final repository = AlertRepositoryImpl(remoteDataSource: dataSource);
-
-            final evaluateThresholdsUseCase = EvaluateThresholdsUseCase(repository);
-            final getActiveAlertsUseCase = GetActiveAlertsUseCase(repository);
-            final getAlertsHistoryUseCase = GetAlertsHistoryUseCase(repository);
-            final markAlertAsReadUseCase = MarkAlertAsReadUseCase(repository);
-            final createAlertUseCase = CreateAlertUseCase(repository);
+            final alertsDb = AlertRemoteDataSource();
+            final alertsRepository = AlertRepositoryImpl(remoteDataSource: alertsDb);
+            final engineDs = AlertEngineRemoteDataSource(dio: dio, alertsDb: alertsDb);
+            final engineRepository = AlertEngineRepositoryImpl(remote: engineDs);
+            final evaluateThresholdsUseCase = EvaluateThresholdsUseCase(engineRepository);
+            final getActiveAlertsUseCase = GetActiveAlertsUseCase(alertsRepository);
+            final getAlertsHistoryUseCase = GetAlertsHistoryUseCase(alertsRepository);
+            final markAlertAsReadUseCase = MarkAlertAsReadUseCase(alertsRepository);
 
             return AlertProvider(
               evaluateThresholdsUseCase: evaluateThresholdsUseCase,
               getActiveAlertsUseCase: getActiveAlertsUseCase,
               getAlertsHistoryUseCase: getAlertsHistoryUseCase,
               markAlertAsReadUseCase: markAlertAsReadUseCase,
-              createAlertUseCase: createAlertUseCase,
             );
           },
         ),
@@ -147,25 +150,20 @@ class EcoMoraApp extends StatelessWidget {
           },
         ),
 
-        // ===== PARCELAS PROVIDER - ✅ AGREGADO =====
+        // ===== PARCELAS PROVIDER =====
         ChangeNotifierProvider(
           create: (_) {
-            // Crear DataSource
             final dataSource = ParcelaRemoteDataSourceImpl();
-
-            // Crear Repository
             final repository = ParcelaRepositoryImpl(
               remoteDataSource: dataSource,
             );
 
-            // Crear UseCases
             final getParcelasUseCase = GetParcelasUseCase(repository);
             final getParcelaByIdUseCase = GetParcelaByIdUseCase(repository);
             final createParcelaUseCase = CreateParcelaUseCase(repository);
             final updateParcelaUseCase = UpdateParcelaUseCase(repository);
             final deleteParcelaUseCase = DeleteParcelaUseCase(repository);
 
-            // Crear Provider con todos los UseCases
             return ParcelaProvider(
               getParcelasUseCase: getParcelasUseCase,
               getParcelaByIdUseCase: getParcelaByIdUseCase,
@@ -175,7 +173,6 @@ class EcoMoraApp extends StatelessWidget {
             );
           },
         ),
-        // ====================================================
       ],
       child: MaterialApp(
         title: 'EcoMora',
@@ -232,37 +229,67 @@ class EcoMoraApp extends StatelessWidget {
           useMaterial3: true,
         ),
 
-        // Ruta inicial
-        initialRoute: AppRoutes.initial,
+        // ===== CORRECCIÓN: Usar home en lugar de initialRoute =====
+        home: const SplashScreen(), // ← CAMBIADO
 
-        // Definición de rutas
+        // Definición de rutas (sin la ruta '/')
         routes: {
           // === Rutas de Autenticación ===
-          AppRoutes.login: (context) => const LoginScreen(),
-          AppRoutes.register: (context) => const RegisterScreen(),
+          AppRoutes.login: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a LoginScreen');
+            return const LoginScreen();
+          },
+          AppRoutes.register: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a RegisterScreen');
+            return const RegisterScreen();
+          },
+          //===Ruta de carga de datos inicial===
+          AppRoutes.loading: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a DataLoadingScreen');
+            return const DataLoadingScreen();
+          },
 
           // === Rutas Principales ===
-          AppRoutes.home: (context) => const HomeScreen(),
+          AppRoutes.home: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a MainShellScreen');
+            return const MainShellScreen();
+          },
 
           // === Ruta de Alertas ===
-          AppRoutes.alerts: (context) => const AlertsScreen(),
+          AppRoutes.alerts: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a AlertsScreen');
+            return const AlertsScreen();
+          },
 
-          // === Rutas de Parcelas - ✅ AGREGADO ===
-          AppRoutes.parcelas: (context) => const ParcelasListScreen(),
-          AppRoutes.addParcela: (context) => const AddParcelaScreen(),
+          // === Rutas de Parcelas ===
+          AppRoutes.parcelas: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a ParcelasListScreen');
+            return const ParcelasListScreen();
+          },
+          AppRoutes.addParcela: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a AddParcelaScreen');
+            return const AddParcelaScreen();
+          },
           AppRoutes.editParcela: (context) {
-            // Obtener la parcela pasada como argumento
+            debugPrint('🎬 [ROUTE] Navegando a EditParcelaScreen');
             final parcela = ModalRoute.of(context)!.settings.arguments;
             return EditParcelaScreen(parcela: parcela as Parcela);
           },
-          // ================================================
 
-          AppRoutes.predictions: (context) => const PredictionsScreen(),
-          AppRoutes.profile: (context) => const GraficaScreen(),
+          // === Otras rutas ===
+          AppRoutes.predictions: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a PredictionsScreen');
+            return const PredictionsScreen();
+          },
+          AppRoutes.profile: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a GraficaScreen');
+            return const GraficaScreen();
+          },
         },
 
-        // Manejo de rutas desconocidas
+        // ===== AGREGAR onUnknownRoute =====
         onUnknownRoute: (settings) {
+          debugPrint('⚠️ [ROUTE] Ruta desconocida: ${settings.name}');
           return MaterialPageRoute(
             builder: (context) => const LoginScreen(),
           );

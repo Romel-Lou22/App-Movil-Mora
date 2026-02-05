@@ -5,19 +5,18 @@ import '../../domain/entities/weather.dart';
 import '../../domain/repositories/weather_repository.dart';
 import '../datasources/openweather_datasource.dart';
 
-/// Implementación del repositorio de clima
-/// Conecta el datasource con la capa de dominio
 class WeatherRepositoryImpl implements WeatherRepository {
-
   WeatherRepositoryImpl({required this.dataSource});
   final OpenWeatherDataSource dataSource;
 
   @override
-  Future<Either<String, Weather>> getCurrentWeather() async {
+  Future<Either<String, Weather>> getCurrentWeather({
+    required double lat,
+    required double lon,
+  }) async {
     try {
-      final weatherModel = await dataSource.getCurrentWeather();
+      final weatherModel = await dataSource.getCurrentWeather(lat: lat, lon: lon);
 
-      // Convierte WeatherModel (data) a Weather (domain)
       final weather = Weather(
         temperature: weatherModel.temperature,
         description: weatherModel.description,

@@ -4,26 +4,16 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/weather.dart';
 import '../../domain/usecases/get_current_weather_usecase.dart';
 
-/// Estados posibles del provider
-enum WeatherStatus {
-  initial,    // Estado inicial
-  loading,    // Cargando datos
-  success,    // Datos cargados exitosamente
-  error,      // Error al cargar
-}
+enum WeatherStatus { initial, loading, success, error }
 
-/// Provider que maneja el estado del clima actual
 class WeatherProvider extends ChangeNotifier {
-
   WeatherProvider({required this.getCurrentWeatherUseCase});
   final GetCurrentWeatherUseCase getCurrentWeatherUseCase;
 
-  // Estado actual
   WeatherStatus _status = WeatherStatus.initial;
   Weather? _weather;
   String _errorMessage = '';
 
-  // Getters
   WeatherStatus get status => _status;
   Weather? get weather => _weather;
   String get errorMessage => _errorMessage;
@@ -32,22 +22,23 @@ class WeatherProvider extends ChangeNotifier {
   bool get hasError => _status == WeatherStatus.error;
   bool get hasData => _status == WeatherStatus.success && _weather != null;
 
-  /// Obtiene los datos del clima actual
-  Future<void> fetchCurrentWeather() async {
+  /// Obtiene los datos del clima actual para coordenadas específicas
+  Future<void> fetchCurrentWeather({
+    required double lat,
+    required double lon,
+  }) async {
     _status = WeatherStatus.loading;
     notifyListeners();
 
-    final result = await getCurrentWeatherUseCase();
+    final result = await getCurrentWeatherUseCase(lat: lat, lon: lon);
 
     result.fold(
-      // Error (Left)
           (error) {
         _status = WeatherStatus.error;
         _errorMessage = error;
         _weather = null;
         notifyListeners();
       },
-      // Éxito (Right)
           (weather) {
         _status = WeatherStatus.success;
         _weather = weather;
@@ -57,8 +48,11 @@ class WeatherProvider extends ChangeNotifier {
     );
   }
 
-  /// Refresca los datos del clima
-  Future<void> refresh() async {
-    await fetchCurrentWeather();
+  /// Refresca (requiere lat/lon)
+  Future<void> refresh({
+    required double lat,
+    required double lon,
+  }) async {
+    await fetchCurrentWeather(lat: lat, lon: lon);
   }
 }

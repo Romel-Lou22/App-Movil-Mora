@@ -101,7 +101,15 @@ class PredictionProvider extends ChangeNotifier {
   ///
   /// Parámetros:
   /// - [parcelaId]: ID de la parcela a analizar
-  Future<void> fetchPredictions(String parcelaId) async {
+  /// - [onPredictionComplete]: Callback opcional que se ejecuta después de guardar
+  Future<void> fetchPredictions(
+      String parcelaId, {
+        Future<void> Function(WeatherData weather, SoilPrediction soil)? onPredictionComplete,
+      }) async {
+    print('🔄 ===================================');
+    print('🔄 INICIANDO FETCHPREDICTIONS');
+    print('📍 Parcela: $parcelaId');
+
     _status = PredictionStatus.loading;
     _errorMessage = '';
     notifyListeners();
@@ -110,6 +118,7 @@ class PredictionProvider extends ChangeNotifier {
 
     result.fold(
           (error) {
+        print('❌ ERROR al obtener predicciones: $error');
         _status = PredictionStatus.error;
         _errorMessage = error;
         _currentWeather = null;
@@ -117,14 +126,36 @@ class PredictionProvider extends ChangeNotifier {
         _lastUpdate = null;
         notifyListeners();
       },
-          (data) {
+          (data) async {
         final (weather, soil) = data;
+
+        print('✅ Clima obtenido: ${weather.temperatura}°C, ${weather.humedad}%');
+        print('✅ Predicción LSTM obtenida: pH=${soil.ph}, N=${soil.nitrogeno}, P=${soil.fosforo}, K=${soil.potasio}');
+        print('💾 Datos guardados en Supabase (datos_historicos)');
+
         _status = PredictionStatus.success;
         _currentWeather = weather;
         _currentSoilPrediction = soil;
         _errorMessage = '';
         _lastUpdate = DateTime.now();
         notifyListeners();
+
+        // 🆕 LLAMAR AL CALLBACK PARA EVALUAR ALERTAS
+        if (onPredictionComplete != null) {
+          print('🚨 Ejecutando callback para evaluar alertas...');
+          try {
+            await onPredictionComplete(weather, soil);
+            print('✅ Callback de alertas completado');
+          } catch (e) {
+            print('⚠️ Error en callback de alertas: $e');
+            // No lanzamos el error para no romper el flujo
+          }
+        } else {
+          print('⚠️ No se proporcionó callback para alertas');
+        }
+
+        print('🔄 FETCHPREDICTIONS COMPLETADO');
+        print('🔄 ===================================');
       },
     );
   }
@@ -132,8 +163,11 @@ class PredictionProvider extends ChangeNotifier {
   /// Refresca los datos (vuelve a consultar APIs y guardar)
   ///
   /// Útil para el botón "Actualizar"
-  Future<void> refresh(String parcelaId) async {
-    await fetchPredictions(parcelaId);
+  Future<void> refresh(
+      String parcelaId, {
+        Future<void> Function(WeatherData weather, SoilPrediction soil)? onPredictionComplete,
+      }) async {
+    await fetchPredictions(parcelaId, onPredictionComplete: onPredictionComplete);
   }
 
   /// Obtiene solo los datos climáticos (sin guardar)

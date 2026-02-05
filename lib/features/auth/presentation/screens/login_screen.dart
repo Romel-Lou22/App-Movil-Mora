@@ -61,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (authProvider.isAuthenticated) {
       // Login exitoso - Navegar a Home
       // TODO: Implementar navegación cuando tengas HomeScreen
-      Navigator.pushReplacementNamed(context, AppRoutes.home);
+      Navigator.pushReplacementNamed(context, AppRoutes.loading);
 
     } else if (authProvider.hasError) {
       // Mostrar error

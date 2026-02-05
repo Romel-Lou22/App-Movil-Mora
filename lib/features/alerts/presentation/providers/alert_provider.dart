@@ -1,142 +1,159 @@
 import 'package:flutter/material.dart';
-import 'package:dartz/dartz.dart'; // O 'package:fpdart/fpdart.dart' si usas fpdart
+import 'package:dartz/dartz.dart';
+
 import '../../domain/entities/alert.dart';
-import '../../domain/usecases/create_alert_usecase.dart';
 import '../../domain/usecases/evaluate_thresholds_usecase.dart';
 import '../../domain/usecases/get_active_alerts_usecase.dart';
 import '../../domain/usecases/get_alerts_history_usecase.dart';
 import '../../domain/usecases/mark_alert_as_read_usecase.dart';
 
 /// Estados posibles del provider
-enum AlertStatus {
-  initial,    // Estado inicial
-  loading,    // Cargando datos
-  success,    // Operación exitosa
-  error,      // Error en operación
-}
+enum AlertStatus { initial, loading, success, error }
 
 /// Filtros rápidos para el historial
-enum DateFilter {
-  all,        // Todas las alertas
-  today,      // Solo hoy
-  week,       // Última semana
-  month,      // Último mes
-  custom,     // Rango personalizado
-}
+enum DateFilter { all, today, week, month, custom }
 
-/// Provider que maneja el estado de las alertas
-///
-/// Responsabilidades:
-/// - Evaluar umbrales y generar alertas
-/// - Obtener alertas activas e historial (con filtros por fecha)
-/// - Marcar alertas como leídas
-/// - Crear alertas manuales
-/// - Mantener el conteo de alertas sin leer
 class AlertProvider extends ChangeNotifier {
-  // Use Cases
   final EvaluateThresholdsUseCase evaluateThresholdsUseCase;
   final GetActiveAlertsUseCase getActiveAlertsUseCase;
   final GetAlertsHistoryUseCase getAlertsHistoryUseCase;
   final MarkAlertAsReadUseCase markAlertAsReadUseCase;
-  final CreateAlertUseCase createAlertUseCase;
 
   AlertProvider({
     required this.evaluateThresholdsUseCase,
     required this.getActiveAlertsUseCase,
     required this.getAlertsHistoryUseCase,
     required this.markAlertAsReadUseCase,
-    required this.createAlertUseCase,
   });
 
   // Estado general
   AlertStatus _status = AlertStatus.initial;
   String _errorMessage = '';
 
-  // Alertas activas
+  // Alertas activas (en este diseño: activas = no leídas y no expiradas)
   List<Alert> _activeAlerts = [];
   int _unreadCount = 0;
 
-  // Historial de alertas
+  // Historial
   List<Alert> _alertsHistory = [];
   Map<String, List<Alert>> _groupedByDate = {};
 
-  // Filtros de fecha
+  // Filtros
   DateFilter _currentFilter = DateFilter.all;
   DateTime? _selectedDate;
   DateTime? _startDate;
   DateTime? _endDate;
 
-  // Estado de evaluación
+  // Evaluación
   bool _isEvaluating = false;
   List<Alert> _lastEvaluationAlerts = [];
 
-  // Getters - Estado general
+  // Getters
   AlertStatus get status => _status;
   String get errorMessage => _errorMessage;
   bool get isLoading => _status == AlertStatus.loading;
   bool get hasError => _status == AlertStatus.error;
-  bool get isEvaluating => _isEvaluating;
 
-  // Getters - Alertas activas
+  bool get isEvaluating => _isEvaluating;
+  List<Alert> get lastEvaluationAlerts => _lastEvaluationAlerts;
+  bool get hasNewAlerts => _lastEvaluationAlerts.isNotEmpty;
+
   List<Alert> get activeAlerts => _activeAlerts;
   int get unreadCount => _unreadCount;
   bool get hasActiveAlerts => _activeAlerts.isNotEmpty;
   bool get hasUnreadAlerts => _unreadCount > 0;
 
-  // Getters - Historial
   List<Alert> get alertsHistory => _alertsHistory;
   Map<String, List<Alert>> get groupedByDate => _groupedByDate;
   bool get hasHistory => _alertsHistory.isNotEmpty;
 
-  // Getters - Filtros
   DateFilter get currentFilter => _currentFilter;
   DateTime? get selectedDate => _selectedDate;
   DateTime? get startDate => _startDate;
   DateTime? get endDate => _endDate;
   String get filterDescription => _getFilterDescription();
 
-  // Getters - Última evaluación
-  List<Alert> get lastEvaluationAlerts => _lastEvaluationAlerts;
-  bool get hasNewAlerts => _lastEvaluationAlerts.isNotEmpty;
-
-  /// Evalúa los umbrales y genera alertas automáticamente
+  // ====== EVALUACIÓN (HF + persist) ======
+  /// Genera y persiste alertas en base a features
+  /// Genera y persiste alertas en base a features
   Future<void> evaluateThresholds({
     required String parcelaId,
-    required double temperatura,
-    required double humedad,
+    required Map<String, double> features,
   }) async {
+    print('🚨 ═══════════════════════════════════');
+    print('🚨 EVALUANDO ALERTAS CON RANDOM FOREST');
+    print('🚨 ═══════════════════════════════════');
+    print('📍 Parcela: $parcelaId');
+    print('📊 Features recibidos:');
+    features.forEach((key, value) {
+      print('   - $key: $value');
+    });
+
     _isEvaluating = true;
     _lastEvaluationAlerts = [];
     notifyListeners();
 
+    print('🔄 Llamando al Random Forest...');
     final result = await evaluateThresholdsUseCase(
       parcelaId: parcelaId,
-      temperatura: temperatura,
-      humedad: humedad,
+      features: features,
     );
+
+    print('📦 Respuesta del Random Forest recibida');
 
     result.fold(
           (error) {
+        print('❌ ═══════════════════════════════════');
+        print('❌ ERROR AL EVALUAR ALERTAS');
+        print('❌ ═══════════════════════════════════');
+        print('❌ Error: $error');
+
         _status = AlertStatus.error;
         _errorMessage = error;
         _isEvaluating = false;
         notifyListeners();
       },
-          (alerts) {
+          (alerts) async {
+        print('✅ ═══════════════════════════════════');
+        print('✅ ALERTAS GENERADAS: ${alerts.length}');
+        print('✅ ═══════════════════════════════════');
+
+        if (alerts.isNotEmpty) {
+          for (var i = 0; i < alerts.length; i++) {
+            print('   ${i + 1}. Tipo: ${alerts[i].tipoAlerta}');
+            print('      Severidad: ${alerts[i].severidad}');
+            print('      Mensaje: ${alerts[i].mensaje}');
+            print('      ---');
+          }
+        } else {
+          print('ℹ️ No se generaron alertas (todos los parámetros están en rangos normales)');
+        }
+
         _lastEvaluationAlerts = alerts;
         _isEvaluating = false;
 
+        // Si hubo nuevas alertas, refresca activas (no leídas) y opcionalmente historial
         if (alerts.isNotEmpty) {
-          fetchActiveAlerts(parcelaId);
+          print('💾 Guardando alertas en Supabase (alertas_historial)...');
+          await fetchActiveAlerts(parcelaId);
+          print('✅ Alertas guardadas y lista actualizada');
         } else {
           _status = AlertStatus.success;
+          _errorMessage = '';
           notifyListeners();
         }
+
+        print('🚨 ═══════════════════════════════════');
+        print('🚨 EVALUACIÓN COMPLETADA');
+        print('🚨 ═══════════════════════════════════');
       },
     );
   }
 
-  /// Obtiene las alertas activas de una parcela
+
+
+
+  // ====== ACTIVAS ======
   Future<void> fetchActiveAlerts(String parcelaId) async {
     _status = AlertStatus.loading;
     notifyListeners();
@@ -150,17 +167,17 @@ class AlertProvider extends ChangeNotifier {
         _activeAlerts = [];
         notifyListeners();
       },
-          (alerts) {
+          (alerts) async {
         _status = AlertStatus.success;
         _activeAlerts = alerts;
         _errorMessage = '';
-        _updateUnreadCount(parcelaId);
+        await _updateUnreadCount(parcelaId);
         notifyListeners();
       },
     );
   }
 
-  /// Obtiene el historial de alertas (todas, sin filtro)
+  // ====== HISTORIAL ======
   Future<void> fetchAlertsHistory({
     required String parcelaId,
     int limit = 50,
@@ -181,7 +198,6 @@ class AlertProvider extends ChangeNotifier {
     _handleHistoryResult(result);
   }
 
-  /// Obtiene las alertas de hoy
   Future<void> fetchTodayAlerts(String parcelaId) async {
     _currentFilter = DateFilter.today;
     _selectedDate = DateTime.now();
@@ -195,11 +211,10 @@ class AlertProvider extends ChangeNotifier {
     _handleHistoryResult(result);
   }
 
-  /// Obtiene las alertas de la última semana
   Future<void> fetchLastWeekAlerts(String parcelaId) async {
     _currentFilter = DateFilter.week;
     _selectedDate = null;
-    _startDate = DateTime.now().subtract(const Duration(days: 7));
+    _startDate = DateTime.now().subtract(const Duration(days: 6));
     _endDate = DateTime.now();
 
     _status = AlertStatus.loading;
@@ -209,13 +224,11 @@ class AlertProvider extends ChangeNotifier {
     _handleHistoryResult(result);
   }
 
-  /// Obtiene las alertas del último mes
   Future<void> fetchLastMonthAlerts(String parcelaId) async {
     _currentFilter = DateFilter.month;
     _selectedDate = null;
-    final now = DateTime.now();
-    _startDate = DateTime(now.year, now.month - 1, now.day);
-    _endDate = now;
+    _startDate = DateTime.now().subtract(const Duration(days: 29));
+    _endDate = DateTime.now();
 
     _status = AlertStatus.loading;
     notifyListeners();
@@ -224,7 +237,6 @@ class AlertProvider extends ChangeNotifier {
     _handleHistoryResult(result);
   }
 
-  /// Obtiene alertas de un día específico (desde el calendario)
   Future<void> fetchAlertsByDate({
     required String parcelaId,
     required DateTime date,
@@ -245,7 +257,6 @@ class AlertProvider extends ChangeNotifier {
     _handleHistoryResult(result);
   }
 
-  /// Obtiene alertas por rango de fechas personalizado
   Future<void> fetchAlertsByDateRange({
     required String parcelaId,
     required DateTime startDate,
@@ -268,42 +279,26 @@ class AlertProvider extends ChangeNotifier {
     _handleHistoryResult(result);
   }
 
-  /// Maneja el resultado del historial
   void _handleHistoryResult(Either<String, List<Alert>> result) {
     result.fold(
           (error) {
         _status = AlertStatus.error;
-        _errorMessage = error as String;
+        _errorMessage = error; // ✅ sin casts
         _alertsHistory = [];
+        _groupedByDate = {};
         notifyListeners();
       },
           (alerts) {
         _status = AlertStatus.success;
-        _alertsHistory = alerts as List<Alert>;
+        _alertsHistory = alerts; // ✅ sin casts
         _errorMessage = '';
-        _groupedByDate = getAlertsHistoryUseCase.groupByDate(alerts as List<Alert>);
+        _groupedByDate = getAlertsHistoryUseCase.groupByDate(alerts);
         notifyListeners();
       },
     );
   }
 
-  /// Actualiza el conteo de alertas sin leer
-  Future<void> _updateUnreadCount(String parcelaId) async {
-    final result = await getActiveAlertsUseCase.getCount(parcelaId);
-
-    result.fold(
-          (error) {
-        _unreadCount = 0;
-      },
-          (count) {
-        _unreadCount = count;
-      },
-    );
-
-    notifyListeners();
-  }
-
-  /// Marca una alerta como leída
+  // ====== MARCAR COMO LEÍDAS ======
   Future<void> markAsRead(String alertId, String parcelaId) async {
     final result = await markAlertAsReadUseCase(alertId);
 
@@ -312,18 +307,16 @@ class AlertProvider extends ChangeNotifier {
         _errorMessage = error;
         notifyListeners();
       },
-          (_) {
-        final index = _activeAlerts.indexWhere((a) => a.id == alertId);
-        if (index != -1) {
-          _activeAlerts[index] = _activeAlerts[index].copyWith(vista: true);
-        }
-        _updateUnreadCount(parcelaId);
+          (_) async {
+        // ✅ Como “activas” son no leídas, al marcar como leída se remueve de activas
+        _activeAlerts.removeWhere((a) => a.id == alertId);
+
+        await _updateUnreadCount(parcelaId);
         notifyListeners();
       },
     );
   }
 
-  /// Marca todas las alertas como leídas
   Future<void> markAllAsRead(String parcelaId) async {
     final result = await markAlertAsReadUseCase.markAll(parcelaId);
 
@@ -333,65 +326,30 @@ class AlertProvider extends ChangeNotifier {
         notifyListeners();
       },
           (_) {
-        _activeAlerts = _activeAlerts
-            .map((alert) => alert.copyWith(vista: true))
-            .toList();
+        // ✅ Limpia activas: ya no hay no leídas
+        _activeAlerts = [];
         _unreadCount = 0;
         notifyListeners();
       },
     );
   }
 
-  /// Crea una alerta manual
-  Future<bool> createManualAlert(Alert alert) async {
-    _status = AlertStatus.loading;
-    notifyListeners();
+  Future<void> _updateUnreadCount(String parcelaId) async {
+    final result = await getActiveAlertsUseCase.getCount(parcelaId);
 
-    final result = await createAlertUseCase(alert);
-
-    return result.fold(
-          (error) {
-        _status = AlertStatus.error;
-        _errorMessage = error;
-        notifyListeners();
-        return false;
-      },
-          (createdAlert) {
-        _status = AlertStatus.success;
-        if (!createdAlert.vista) {
-          _activeAlerts.insert(0, createdAlert);
-          _unreadCount++;
-        }
-        notifyListeners();
-        return true;
-      },
+    result.fold(
+          (_) => _unreadCount = 0,
+          (count) => _unreadCount = count,
     );
   }
 
-  /// Elimina una alerta
-  Future<bool> deleteAlert(String alertId, String parcelaId) async {
-    final result = await createAlertUseCase.deleteAlert(alertId);
-
-    return result.fold(
-          (error) {
-        _errorMessage = error;
-        notifyListeners();
-        return false;
-      },
-          (_) {
-        _activeAlerts.removeWhere((a) => a.id == alertId);
-        _alertsHistory.removeWhere((a) => a.id == alertId);
-        _updateUnreadCount(parcelaId);
-        notifyListeners();
-        return true;
-      },
-    );
-  }
-
-  /// Filtra alertas por tipo
+  // ====== FILTRAR POR TIPO (historial) ======
+  /// Ahora debe recibir AlertType (no String)
   Future<void> fetchAlertsByType({
     required String parcelaId,
-    required String tipoAlerta,
+    required AlertType tipoAlerta,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     _status = AlertStatus.loading;
     notifyListeners();
@@ -399,6 +357,9 @@ class AlertProvider extends ChangeNotifier {
     final result = await getAlertsHistoryUseCase.getByType(
       parcelaId: parcelaId,
       tipoAlerta: tipoAlerta,
+      startDate: startDate,
+      endDate: endDate,
+      limit: 200,
     );
 
     result.fold(
@@ -416,12 +377,11 @@ class AlertProvider extends ChangeNotifier {
     );
   }
 
-  /// Refresca las alertas activas
+  // ====== REFRESH ======
   Future<void> refreshActiveAlerts(String parcelaId) async {
     await fetchActiveAlerts(parcelaId);
   }
 
-  /// Refresca el historial según el filtro actual
   Future<void> refreshHistory(String parcelaId) async {
     switch (_currentFilter) {
       case DateFilter.all:
@@ -450,7 +410,7 @@ class AlertProvider extends ChangeNotifier {
     }
   }
 
-  /// Obtiene la descripción del filtro actual
+  // ====== HELPERS ======
   String _getFilterDescription() {
     switch (_currentFilter) {
       case DateFilter.all:
@@ -471,7 +431,6 @@ class AlertProvider extends ChangeNotifier {
     }
   }
 
-  /// Limpia los filtros de fecha
   void clearFilters() {
     _currentFilter = DateFilter.all;
     _selectedDate = null;
@@ -480,20 +439,17 @@ class AlertProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Limpia el estado de error
   void clearError() {
     _status = AlertStatus.initial;
     _errorMessage = '';
     notifyListeners();
   }
 
-  /// Limpia las alertas de la última evaluación
   void clearLastEvaluation() {
     _lastEvaluationAlerts = [];
     notifyListeners();
   }
 
-  /// Limpia todo el estado del provider
   void clear() {
     _status = AlertStatus.initial;
     _errorMessage = '';
@@ -510,12 +466,11 @@ class AlertProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Obtiene estadísticas de alertas por tipo
+  /// Estadísticas por tipo para UI (keys string)
   Map<String, int> getAlertStatistics() {
-    return getAlertsHistoryUseCase.groupByType(_alertsHistory);
+    return getAlertsHistoryUseCase.groupByTypeDbValue(_alertsHistory);
   }
 
-  /// Obtiene estadísticas por mes
   Map<String, int> getMonthlyStatistics() {
     return getAlertsHistoryUseCase.groupByMonth(_alertsHistory);
   }

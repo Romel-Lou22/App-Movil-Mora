@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/prediction_provider.dart';
 import '../widgets/weather_card.dart';
 import '../widgets/soil_prediction_card.dart';
+import '../../../alerts/presentation/providers/alert_provider.dart';
+import '../../../parcelas/presentation/providers/parcela_provider.dart';
 
 /// Pantalla principal de predicciones
 ///
@@ -19,45 +21,105 @@ class PredictionsScreen extends StatefulWidget {
 }
 
 class _PredictionsScreenState extends State<PredictionsScreen> {
-  // ID de la parcela activa (deberías obtenerlo del provider de parcelas)
-  // Por ahora lo dejamos como ejemplo
-  String? _parcelaId = 'c9320aff-9a75-4e3e-aadf-41ab2cbebd07';
-
   @override
   void initState() {
     super.initState();
-    // Aquí deberías obtener el parcelaId de tu provider de parcelas
-    // Por ejemplo: _parcelaId = context.read<ParcelasProvider>().parcelaActiva?.id;
 
-    // Para este ejemplo, lo inicializamos después del primer frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
+
+      // Escuchar cambios en la parcela
+      context.read<ParcelaProvider>().addListener(_onParcelaChanged);
     });
+  }
+
+  void _onParcelaChanged() {
+    final parcelaId = context.read<ParcelaProvider>().parcelaSeleccionada?.id;
+    if (parcelaId != null && mounted) {
+      _fetchPredictions(parcelaId);
+    }
+  }
+
+  @override
+  void dispose() {
+    context.read<ParcelaProvider>().removeListener(_onParcelaChanged);
+    super.dispose();
   }
 
   /// Carga los datos iniciales
   Future<void> _loadInitialData() async {
-    // TODO: Obtener el parcelaId real del provider de parcelas
-    // Por ahora usamos un placeholder
-    // final parcelasProvider = context.read<ParcelasProvider>();
-    // _parcelaId = parcelasProvider.parcelaActiva?.id;
+    // Obtener el parcelaId del provider de parcelas
+    final parcelaProvider = context.read<ParcelaProvider>();
+    final parcelaId = parcelaProvider.parcelaSeleccionada?.id;
 
-    // TEMPORAL: Simular que tenemos un parcelaId
-    // Descomenta esto cuando tengas el provider de parcelas
-    // if (_parcelaId != null) {
-    //   await _fetchPredictions();
-    // }
+    if (parcelaId != null) {
+      await _fetchPredictions(parcelaId);
+    } else {
+      _showError('No hay una parcela seleccionada');
+    }
   }
 
-  /// Obtiene las predicciones
-  Future<void> _fetchPredictions() async {
-    if (_parcelaId == null) {
-      _showError('No hay una parcela seleccionada');
-      return;
-    }
+  /// Obtiene las predicciones para una parcela específica
+  Future<void> _fetchPredictions(String parcelaId) async {
+    print('🎯 ===================================');
+    print('🎯 BOTÓN PRESIONADO - Iniciando flujo completo');
+    print('📍 Parcela: $parcelaId');
 
-    final provider = context.read<PredictionProvider>();
-    await provider.fetchPredictions(_parcelaId!);
+    final predictionProvider = context.read<PredictionProvider>();
+
+    // Llamar a fetchPredictions CON callback para alertas
+    await predictionProvider.fetchPredictions(
+      parcelaId,
+      onPredictionComplete: (weather, soil) async {
+        print('🚨 ===================================');
+        print('🚨 CALLBACK DE ALERTAS - Inicio');
+
+        // Construir el mapa de features para el Random Forest
+        final features = {
+          'pH': soil.ph,
+          'temperatura_C': weather.temperatura,
+          'humedad_suelo_pct': weather.humedad,
+          'N_ppm': soil.nitrogeno,
+          'P_ppm': soil.fosforo,
+          'K_ppm': soil.potasio,
+        };
+
+        print('📊 Features para Random Forest:');
+        print('   - pH: ${soil.ph}');
+        print('   - Temperatura: ${weather.temperatura}°C');
+        print('   - Humedad: ${weather.humedad}%');
+        print('   - Nitrógeno: ${soil.nitrogeno} ppm');
+        print('   - Fósforo: ${soil.fosforo} ppm');
+        print('   - Potasio: ${soil.potasio} ppm');
+
+        // Evaluar alertas con el Random Forest
+        if (!mounted) return;
+
+        final alertProvider = context.read<AlertProvider>();
+        await alertProvider.evaluateThresholds(
+          parcelaId: parcelaId,
+          features: features,
+        );
+
+        // Mostrar feedback al usuario
+        if (!mounted) return;
+
+        final alertsGenerated = alertProvider.lastEvaluationAlerts.length;
+        if (alertsGenerated > 0) {
+          print('✅ Se generaron $alertsGenerated alertas nuevas');
+          _showSuccess('✅ Predicción completada - $alertsGenerated alertas generadas');
+        } else {
+          print('ℹ️ No se generaron alertas nuevas');
+          _showSuccess('✅ Predicción completada - Sin alertas críticas');
+        }
+
+        print('🚨 CALLBACK DE ALERTAS - Fin');
+        print('🚨 ===================================');
+      },
+    );
+
+    print('🎯 FLUJO COMPLETO TERMINADO');
+    print('🎯 ===================================');
   }
 
   /// Muestra un mensaje de error
@@ -90,43 +152,34 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('Predicciones'),
-        backgroundColor: const Color(0xFF6B7C3B),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          // Botón de información
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showInfoDialog(),
-          ),
-        ],
-      ),
-      body: Consumer<PredictionProvider>(
-        builder: (context, provider, child) {
+
+      body: Consumer2<PredictionProvider, ParcelaProvider>(
+        builder: (context, predictionProvider, parcelaProvider, child) {
+          // Obtener parcelaId del provider
+          final parcelaId = parcelaProvider.parcelaSeleccionada?.id;
+
           // Estado: Sin parcela seleccionada
-          if (_parcelaId == null) {
+          if (parcelaId == null) {
             return _buildNoParcelaView();
           }
 
           // Estado: Cargando
-          if (provider.isLoading && !provider.hasData) {
+          if (predictionProvider.isLoading && !predictionProvider.hasData) {
             return _buildLoadingView();
           }
 
           // Estado: Error
-          if (provider.hasError && !provider.hasData) {
-            return _buildErrorView(provider.errorMessage);
+          if (predictionProvider.hasError && !predictionProvider.hasData) {
+            return _buildErrorView(predictionProvider.errorMessage, parcelaId);
           }
 
           // Estado: Con datos
-          if (provider.hasData) {
-            return _buildDataView(provider);
+          if (predictionProvider.hasData) {
+            return _buildDataView(predictionProvider, parcelaId);
           }
 
           // Estado: Inicial (sin datos todavía)
-          return _buildInitialView();
+          return _buildInitialView(parcelaId);
         },
       ),
     );
@@ -167,11 +220,10 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
-                // TODO: Navegar a la pantalla de parcelas
-                // Navigator.pushNamed(context, '/parcelas');
+                Navigator.pop(context);
               },
-              icon: const Icon(Icons.add_location_alt),
-              label: const Text('Seleccionar Parcela'),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Volver al inicio'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6B7C3B),
                 foregroundColor: Colors.white,
@@ -218,7 +270,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
   }
 
   /// Vista de error
-  Widget _buildErrorView(String errorMessage) {
+  Widget _buildErrorView(String errorMessage, String parcelaId) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -251,7 +303,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _fetchPredictions,
+              onPressed: () => _fetchPredictions(parcelaId),
               icon: const Icon(Icons.refresh),
               label: const Text('Intentar nuevamente'),
               style: ElevatedButton.styleFrom(
@@ -270,7 +322,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
   }
 
   /// Vista inicial (cuando no se han cargado datos todavía)
-  Widget _buildInitialView() {
+  Widget _buildInitialView(String parcelaId) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -303,7 +355,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _fetchPredictions,
+              onPressed: () => _fetchPredictions(parcelaId),
               icon: const Icon(Icons.play_arrow),
               label: const Text('Obtener Predicciones'),
               style: ElevatedButton.styleFrom(
@@ -326,12 +378,12 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
   }
 
   /// Vista con datos
-  Widget _buildDataView(PredictionProvider provider) {
+  Widget _buildDataView(PredictionProvider provider, String parcelaId) {
     final weather = provider.currentWeather!;
     final soil = provider.currentSoilPrediction!;
 
     return RefreshIndicator(
-      onRefresh: _fetchPredictions,
+      onRefresh: () => _fetchPredictions(parcelaId),
       color: const Color(0xFF6B7C3B),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -347,7 +399,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             // Card de clima
             WeatherCard(
               weatherData: weather,
-              onRefresh: provider.isLoading ? null : _fetchPredictions,
+              onRefresh: provider.isLoading ? null : () => _fetchPredictions(parcelaId),
             ),
 
             const SizedBox(height: 16),
@@ -365,7 +417,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             const SizedBox(height: 16),
 
             // Botones de acción
-            _buildActionButtons(),
+            _buildActionButtons(parcelaId),
 
             const SizedBox(height: 32),
           ],
@@ -480,13 +532,12 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
   }
 
   /// Botones de acción
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(String parcelaId) {
     return Row(
       children: [
         Expanded(
           child: OutlinedButton.icon(
             onPressed: () {
-              // TODO: Navegar a historial
               _showSuccess('Función de historial próximamente');
             },
             icon: const Icon(Icons.history),
@@ -503,7 +554,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
           child: ElevatedButton.icon(
             onPressed: context.watch<PredictionProvider>().isLoading
                 ? null
-                : _fetchPredictions,
+                : () => _fetchPredictions(parcelaId),
             icon: const Icon(Icons.refresh),
             label: const Text('Actualizar'),
             style: ElevatedButton.styleFrom(

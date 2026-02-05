@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/alert.dart';
 import 'recommendation_widget.dart';
 
-/// Widget de detalle expandido de una alerta
-///
-/// Se muestra como modal/bottom sheet al hacer tap en un AlertCard
 class AlertDetailWidget extends StatelessWidget {
   final Alert alert;
   final VoidCallback? onMarkAsRead;
@@ -17,7 +14,6 @@ class AlertDetailWidget extends StatelessWidget {
     this.onDelete,
   });
 
-  /// Muestra el detalle en un modal bottom sheet
   static Future<void> show({
     required BuildContext context,
     required Alert alert,
@@ -49,58 +45,30 @@ class AlertDetailWidget extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Handle del modal
           _buildHandle(),
-
-          // Contenido scrolleable
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header con emoji y título
                   _buildHeader(),
-
                   const SizedBox(height: 24),
-
-                  // Badge de severidad y fecha
                   _buildMetadata(),
-
                   const SizedBox(height: 24),
-
-                  // Información del parámetro
                   _buildParameterInfo(),
-
                   const SizedBox(height: 24),
-
-                  // Ubicación
                   _buildLocationInfo(),
-
                   const SizedBox(height: 24),
-
-                  // Mensaje descriptivo
                   _buildMessage(),
-
                   const SizedBox(height: 24),
-
-                  // Recomendación
-                  if (alert.recomendacion != null &&
-                      alert.recomendacion!.isNotEmpty)
+                  if ((alert.recomendacion ?? '').trim().isNotEmpty) ...[
                     _buildRecommendation(),
-
-                  if (alert.recomendacion != null &&
-                      alert.recomendacion!.isNotEmpty)
                     const SizedBox(height: 24),
-
-                  // Detalles técnicos
+                  ],
                   _buildTechnicalDetails(),
-
                   const SizedBox(height: 32),
-
-                  // Botones de acción
                   _buildActionButtons(context),
-
                   const SizedBox(height: 16),
                 ],
               ),
@@ -111,7 +79,6 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  /// Handle visual del modal
   Widget _buildHandle() {
     return Container(
       margin: const EdgeInsets.only(top: 12, bottom: 8),
@@ -124,35 +91,30 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  /// Header con emoji y título
   Widget _buildHeader() {
     return Row(
       children: [
-        // Emoji
         Container(
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: _getSeverityColor().withOpacity(0.1),
+            color: _severityColor(alert.severidad).withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Center(
             child: Text(
-              alert.emoji,
+              _emojiForType(alert.tipoAlerta),
               style: const TextStyle(fontSize: 36),
             ),
           ),
         ),
-
         const SizedBox(width: 16),
-
-        // Título
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _getAlertTitle(),
+                _titleForType(alert.tipoAlerta),
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -175,19 +137,17 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  /// Metadata: Severidad y fecha
   Widget _buildMetadata() {
     return Row(
       children: [
-        // Badge de severidad
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: _getSeverityColor(),
+            color: _severityColor(alert.severidad),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            alert.severidad?.toUpperCase() ?? 'ALERTA',
+            _severityLabel(alert.severidad),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 11,
@@ -196,15 +156,8 @@ class AlertDetailWidget extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(width: 12),
-
-        // Fecha
-        Icon(
-          Icons.calendar_today,
-          size: 16,
-          color: Colors.grey[600],
-        ),
+        Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
         const SizedBox(width: 6),
         Text(
           _formatDate(alert.fechaAlerta),
@@ -214,10 +167,7 @@ class AlertDetailWidget extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-
         const Spacer(),
-
-        // Estado (vista/no vista)
         if (!alert.vista)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -228,11 +178,7 @@ class AlertDetailWidget extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.circle,
-                  size: 8,
-                  color: Colors.orange[700],
-                ),
+                Icon(Icons.circle, size: 8, color: Colors.orange[700]),
                 const SizedBox(width: 6),
                 Text(
                   'NO LEÍDA',
@@ -249,21 +195,18 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  /// Información del parámetro medido
   Widget _buildParameterInfo() {
+    final unit = _unitForType(alert.tipoAlerta);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey[200]!,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey[200]!, width: 1),
       ),
       child: Column(
         children: [
-          // Valor detectado
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -276,19 +219,16 @@ class AlertDetailWidget extends StatelessWidget {
                 ),
               ),
               Text(
-                '${alert.valorDetectado.toStringAsFixed(1)} ${_getUnit()}',
+                '${alert.valorDetectado.toStringAsFixed(1)} $unit',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: _getSeverityColor(),
+                  color: _severityColor(alert.severidad),
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-
-          // Umbral óptimo
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -315,7 +255,6 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  /// Información de ubicación
   Widget _buildLocationInfo() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -325,11 +264,7 @@ class AlertDetailWidget extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.location_on,
-            color: Colors.blue[700],
-            size: 24,
-          ),
+          Icon(Icons.location_on, color: Colors.blue[700], size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -346,7 +281,6 @@ class AlertDetailWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  // TODO: Reemplazar con nombre de parcela real
                   'Tisaleo, Ecuador',
                   style: TextStyle(
                     fontSize: 16,
@@ -362,7 +296,6 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  /// Mensaje descriptivo
   Widget _buildMessage() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,25 +322,21 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  /// Widget de recomendación
   Widget _buildRecommendation() {
-    if (alert.severidad?.toLowerCase() == 'critica') {
-      return CriticalRecommendationWidget(
-        recommendation: alert.recomendacion!,
-      );
-    } else if (alert.severidad?.toLowerCase() == 'alta' ||
-        alert.severidad?.toLowerCase() == 'preventiva') {
-      return WarningRecommendationWidget(
-        recommendation: alert.recomendacion!,
-      );
-    } else {
-      return RecommendationWidget(
-        recommendation: alert.recomendacion!,
-      );
+    final rec = alert.recomendacion!.trim();
+
+    switch (alert.severidad) {
+      case AlertSeverity.critica:
+        return CriticalRecommendationWidget(recommendation: rec);
+      case AlertSeverity.alta:
+        return WarningRecommendationWidget(recommendation: rec);
+      case AlertSeverity.media:
+      case AlertSeverity.baja:
+      case null:
+        return RecommendationWidget(recommendation: rec);
     }
   }
 
-  /// Detalles técnicos adicionales
   Widget _buildTechnicalDetails() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -422,32 +351,25 @@ class AlertDetailWidget extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-
-        _buildDetailRow('Tipo de Alerta', alert.tipoAlerta),
-        _buildDetailRow('ID', alert.id.substring(0, 8) + '...'),
+        _buildDetailRow('Tipo de Alerta', _dbValueForType(alert.tipoAlerta)),
+        _buildDetailRow('ID', alert.id.length > 8 ? '${alert.id.substring(0, 8)}...' : alert.id),
         _buildDetailRow('Fecha de Creación', _formatDateTime(alert.createdAt)),
-        if (alert.isActive)
-          _buildDetailRow('Estado', 'Activa', color: Colors.green)
-        else
-          _buildDetailRow('Estado', 'Expirada', color: Colors.grey),
+        _buildDetailRow(
+          'Estado',
+          alert.isActive ? 'Activa' : 'Expirada',
+          color: alert.isActive ? Colors.green : Colors.grey,
+        ),
       ],
     );
   }
 
-  /// Fila de detalle técnico
   Widget _buildDetailRow(String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
-          ),
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
           Text(
             value,
             style: TextStyle(
@@ -461,11 +383,9 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  /// Botones de acción
   Widget _buildActionButtons(BuildContext context) {
     return Column(
       children: [
-        // Botón marcar como vista
         if (!alert.vista && onMarkAsRead != null)
           SizedBox(
             width: double.infinity,
@@ -488,25 +408,17 @@ class AlertDetailWidget extends StatelessWidget {
                 backgroundColor: const Color(0xFF6A1B9A),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
-
-        if (!alert.vista && onMarkAsRead != null)
-          const SizedBox(height: 12),
-
-        // Botón eliminar
+        if (!alert.vista && onMarkAsRead != null) const SizedBox(height: 12),
         if (onDelete != null)
           SizedBox(
             width: double.infinity,
             height: 48,
             child: OutlinedButton.icon(
-              onPressed: () {
-                _showDeleteConfirmation(context);
-              },
+              onPressed: () => _showDeleteConfirmation(context),
               icon: const Icon(Icons.delete_outline, size: 20),
               label: const Text(
                 'ELIMINAR ALERTA',
@@ -519,9 +431,7 @@ class AlertDetailWidget extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.red[700],
                 side: BorderSide(color: Colors.red[300]!),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -529,7 +439,6 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  /// Muestra confirmación para eliminar
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
       context: context,
@@ -545,13 +454,11 @@ class AlertDetailWidget extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // Cerrar diálogo
-              Navigator.of(context).pop(); // Cerrar bottom sheet
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
               onDelete?.call();
             },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Eliminar'),
           ),
         ],
@@ -559,54 +466,145 @@ class AlertDetailWidget extends StatelessWidget {
     );
   }
 
-  // ========== HELPERS ==========
+  // ===================== HELPERS (ENUM-SAFE) =====================
 
-  Color _getSeverityColor() {
-    if (alert.severidad == null) return Colors.grey;
+  String _severityLabel(AlertSeverity? s) {
+    switch (s) {
+      case AlertSeverity.critica:
+        return 'CRÍTICA';
+      case AlertSeverity.alta:
+        return 'ALTA';
+      case AlertSeverity.media:
+        return 'MEDIA';
+      case AlertSeverity.baja:
+        return 'BAJA';
+      case null:
+        return 'ALERTA';
+    }
+  }
 
-    switch (alert.severidad!.toLowerCase()) {
-      case 'critica':
+  Color _severityColor(AlertSeverity? s) {
+    switch (s) {
+      case AlertSeverity.critica:
         return const Color(0xFFDC2626);
-      case 'alta':
-      case 'preventiva':
+      case AlertSeverity.alta:
         return const Color(0xFFF59E0B);
-      case 'media':
+      case AlertSeverity.media:
         return const Color(0xFFFCD34D);
-      case 'baja':
-      case 'normal':
+      case AlertSeverity.baja:
         return const Color(0xFF10B981);
-      default:
+      case null:
         return Colors.grey;
     }
   }
 
-  String _getAlertTitle() {
-    final titles = {
-      'helada': 'Riesgo de Helada',
-      'temp_baja': 'Temperatura Baja',
-      'temp_alta': 'Temperatura Alta',
-      'sequia': 'Riesgo de Sequía',
-      'hum_baja': 'Humedad Baja',
-      'hum_alta': 'Humedad Alta',
-      'ph_bajo': 'pH Bajo',
-      'ph_alto': 'pH Alto',
-      'n_bajo': 'Nitrógeno Bajo',
-      'n_alto': 'Nitrógeno Alto',
-      'p_bajo': 'Fósforo Bajo',
-      'p_alto': 'Fósforo Alto',
-      'k_bajo': 'Potasio Bajo',
-      'k_alto': 'Potasio Alto',
-    };
-
-    return titles[alert.tipoAlerta] ?? 'Alerta';
+  String _titleForType(AlertType type) {
+    switch (type) {
+      case AlertType.phBajo:
+        return 'Riesgo de pH Bajo';
+      case AlertType.phAlto:
+        return 'Riesgo de pH Alto';
+      case AlertType.humBaja:
+        return 'Humedad Baja';
+      case AlertType.humAlta:
+        return 'Humedad Alta';
+      case AlertType.tempBaja:
+        return 'Temperatura Baja';
+      case AlertType.tempAlta:
+        return 'Temperatura Alta';
+      case AlertType.nBajo:
+        return 'Nitrógeno Bajo';
+      case AlertType.nAlto:
+        return 'Nitrógeno Alto';
+      case AlertType.pBajo:
+        return 'Fósforo Bajo';
+      case AlertType.pAlto:
+        return 'Fósforo Alto';
+      case AlertType.kBajo:
+        return 'Potasio Bajo';
+      case AlertType.kAlto:
+        return 'Potasio Alto';
+    }
   }
 
-  String _getUnit() {
-    if (alert.tipoAlerta.contains('ph')) return 'pH';
-    if (alert.tipoAlerta.contains('temp')) return '°C';
-    if (alert.tipoAlerta.contains('hum')) return '%';
-    if (alert.tipoAlerta.contains('_')) return 'ppm';
-    return '';
+  String _emojiForType(AlertType type) {
+    switch (type) {
+      case AlertType.phBajo:
+      case AlertType.phAlto:
+        return '🧪';
+      case AlertType.humBaja:
+        return '🌵';
+      case AlertType.humAlta:
+        return '💧';
+      case AlertType.tempBaja:
+        return '❄️';
+      case AlertType.tempAlta:
+        return '🔥';
+      case AlertType.nBajo:
+        return '🌿';
+      case AlertType.nAlto:
+        return '⚠️';
+      case AlertType.pBajo:
+        return '🧬';
+      case AlertType.pAlto:
+        return '⚗️';
+      case AlertType.kBajo:
+        return '🍃';
+      case AlertType.kAlto:
+        return '⚡';
+    }
+  }
+
+  /// Texto “dbValue” para UI técnica (ej: ph_bajo, temp_alta, etc.).
+  /// Si ya tienes un getter tipo `AlertType.dbValue`, úsalo aquí y elimina este switch.
+  String _dbValueForType(AlertType type) {
+    switch (type) {
+      case AlertType.phBajo:
+        return 'ph_bajo';
+      case AlertType.phAlto:
+        return 'ph_alto';
+      case AlertType.humBaja:
+        return 'hum_baja';
+      case AlertType.humAlta:
+        return 'hum_alta';
+      case AlertType.tempBaja:
+        return 'temp_baja';
+      case AlertType.tempAlta:
+        return 'temp_alta';
+      case AlertType.nBajo:
+        return 'n_bajo';
+      case AlertType.nAlto:
+        return 'n_alto';
+      case AlertType.pBajo:
+        return 'p_bajo';
+      case AlertType.pAlto:
+        return 'p_alto';
+      case AlertType.kBajo:
+        return 'k_bajo';
+      case AlertType.kAlto:
+        return 'k_alto';
+    }
+  }
+
+  String _unitForType(AlertType type) {
+    switch (type) {
+      case AlertType.phBajo:
+      case AlertType.phAlto:
+        return 'pH';
+      case AlertType.tempBaja:
+      case AlertType.tempAlta:
+        return '°C';
+      case AlertType.humBaja:
+      case AlertType.humAlta:
+        return '%';
+      case AlertType.nBajo:
+      case AlertType.nAlto:
+      case AlertType.pBajo:
+      case AlertType.pAlto:
+      case AlertType.kBajo:
+      case AlertType.kAlto:
+        return 'ppm';
+    }
   }
 
   String _formatDate(DateTime date) {

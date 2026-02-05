@@ -2,7 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../core/constants/app_colors.dart';
+import '../../../parcelas/presentation/providers/parcela_provider.dart';
 import '../../../weather/presentation/providers/weather_provider.dart';
 
 class CurrentWeatherCard extends StatefulWidget {
@@ -13,66 +15,138 @@ class CurrentWeatherCard extends StatefulWidget {
 }
 
 class _CurrentWeatherCardState extends State<CurrentWeatherCard> {
+  String? _lastParcelaId;
+
   @override
   void initState() {
     super.initState();
-    // Cargar datos al iniciar el widget
+
+    // 1) Escuchar cambios del provider de parcelas (cambio de selección)
+    context.read<ParcelaProvider>().addListener(_onParcelaChanged);
+
+    // 2) Cargar al iniciar si ya hay parcela seleccionada
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WeatherProvider>().fetchCurrentWeather();
+      if (!mounted) return;
+      _fetchUsingSelectedParcela();
     });
   }
 
   @override
+  void dispose() {
+    // Importante: remover listener
+    context.read<ParcelaProvider>().removeListener(_onParcelaChanged);
+    super.dispose();
+  }
+
+  void _onParcelaChanged() {
+    if (!mounted) return;
+
+    final parcela = context.read<ParcelaProvider>().parcelaSeleccionada;
+    final id = parcela?.id;
+
+    if (parcela == null || parcela.isEmpty) return;
+    if (id == null || id.isEmpty) return;
+    if (id == _lastParcelaId) return;
+
+    _lastParcelaId = id;
+
+    context.read<WeatherProvider>().fetchCurrentWeather(
+      lat: parcela.latitudEfectiva,
+      lon: parcela.longitudEfectiva,
+    );
+  }
+
+  void _fetchUsingSelectedParcela() {
+    final parcela = context.read<ParcelaProvider>().parcelaSeleccionada;
+    if (parcela == null || parcela.isEmpty) return;
+
+    _lastParcelaId = parcela.id;
+
+    context.read<WeatherProvider>().fetchCurrentWeather(
+      lat: parcela.latitudEfectiva,
+      lon: parcela.longitudEfectiva,
+    );
+  }
+
+  void _refreshForCurrentParcela() {
+    final parcela = context.read<ParcelaProvider>().parcelaSeleccionada;
+    if (parcela == null || parcela.isEmpty) return;
+
+    context.read<WeatherProvider>().refresh(
+      lat: parcela.latitudEfectiva,
+      lon: parcela.longitudEfectiva,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Consumer<WeatherProvider>(
-      builder: (context, weatherProvider, child) {
-        // Estado: Cargando
+    return Consumer2<ParcelaProvider, WeatherProvider>(
+      builder: (context, parcelaProvider, weatherProvider, child) {
+        final parcela = parcelaProvider.parcelaSeleccionada;
+
+        // Sin parcela seleccionada
+        if (parcela == null || parcela.isEmpty) {
+          return _buildContainer(
+            child: const Text('Selecciona una parcela para ver el clima.'),
+          );
+        }
+
+        // Cargando
         if (weatherProvider.isLoading) {
           return _buildContainer(
-            child: const Center(
-              child: CircularProgressIndicator(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 20),
+                const Center(child: CircularProgressIndicator()),
+              ],
             ),
           );
         }
 
-        // Estado: Error
+        // Error
         if (weatherProvider.hasError) {
           return _buildContainer(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'CURRENT WEATHER',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                    letterSpacing: 1,
-                  ),
-                ),
+                _buildHeader(),
                 const SizedBox(height: 16),
                 Text(
                   'Error: ${weatherProvider.errorMessage}',
-                  style: const TextStyle(color: Colors.red),
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
                 ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: () => weatherProvider.refresh(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _refreshForCurrentParcela,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Reintentar'),
                   ),
-                  child: const Text('Reintentar'),
                 ),
               ],
             ),
           );
         }
 
-        // Estado: Datos cargados
+        // Datos cargados
         final weather = weatherProvider.weather;
         if (weather == null) {
           return _buildContainer(
-            child: const Text('No hay datos disponibles'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 16),
+                const Text('No hay datos disponibles.'),
+              ],
+            ),
           );
         }
 
@@ -80,37 +154,31 @@ class _CurrentWeatherCardState extends State<CurrentWeatherCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              const Text(
-                'CURRENT WEATHER',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                  letterSpacing: 1,
-                ),
-              ),
+              _buildHeader(),
               const SizedBox(height: 16),
 
               // Contenido principal
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Icono del clima desde la API
+                  // Icono clima (más pequeño: 48x48)
                   Image.network(
                     weather.iconUrl,
-                    width: 64,
-                    height: 64,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Icon(
                         Icons.wb_cloudy_outlined,
-                        size: 64,
+                        size: 48,
                         color: AppColors.textSecondary.withOpacity(0.6),
                       );
                     },
                   ),
-                  const SizedBox(width: 16),
 
-                  // Descripción del clima
+                  const SizedBox(width: 12),
+
+                  // Descripción + humedad (Expanded para evitar overflow)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,28 +186,42 @@ class _CurrentWeatherCardState extends State<CurrentWeatherCard> {
                         Text(
                           weather.descriptionCapitalized,
                           style: const TextStyle(
-                            fontSize: 20,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textPrimary,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Humedad: ${weather.humidity}%',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.water_drop_outlined,
+                              size: 14,
+                              color: AppColors.textSecondary.withOpacity(0.8),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Humedad: ${weather.humidity}%',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
 
-                  // Temperatura
+                  const SizedBox(width: 8),
+
+                  // Temperatura (entero sin decimales, más pequeño)
                   Text(
-                    weather.temperatureFormatted,
+                    '${weather.temperature.round()}°C',
                     style: const TextStyle(
-                      fontSize: 48,
+                      fontSize: 36,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textPrimary,
                     ),
@@ -153,18 +235,36 @@ class _CurrentWeatherCardState extends State<CurrentWeatherCard> {
     );
   }
 
-  /// Widget reutilizable para el contenedor del card
+  Widget _buildHeader() {
+    return const Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          'CLIMA ACTUAL',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textSecondary,
+            letterSpacing: 1,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildContainer({required Widget child}) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black.withOpacity(0.04)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
         ],
       ),

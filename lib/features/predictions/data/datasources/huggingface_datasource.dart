@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart'; // ← AGREGAR ESTE IMPORT
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/soil_prediction_model.dart';
 import '../../../../core/config/supabase_config.dart';
@@ -8,8 +8,7 @@ import '../../../../core/config/supabase_config.dart';
 /// DataSource que maneja las operaciones con HuggingFace API
 ///
 /// Responsabilidades:
-/// - Obtener últimos 24 registros históricos de suelo desde Supabase
-/// - Si no hay 24 registros, generar datos sintéticos
+/// - Obtener datos reales desde el API de Sensor (CSV)
 /// - Preparar array de 96 valores (24 timesteps × 4 features)
 /// - Consumir HuggingFace API para predicción de nutrientes
 /// - Convertir la respuesta del API a SoilPredictionModel
@@ -18,8 +17,12 @@ class HuggingFaceDataSource {
   final SupabaseClient _supabase;
 
   // Configuración de HuggingFace API
-  static const String _baseUrl =
+  static const String _huggingFaceUrl =
       'https://roca22-api-clima-prediccionv.hf.space';
+
+  // Configuración del API de Sensor
+  static const String _sensorApiUrl =
+      'https://mora-soil-lstm-api.vercel.app';
 
   HuggingFaceDataSource({
     Dio? dio,
@@ -28,19 +31,6 @@ class HuggingFaceDataSource {
         _supabase = supabase ?? SupabaseConfig.supabase;
 
   /// Predice los nutrientes del suelo para una parcela
-  ///
-  /// Pasos:
-  /// 1. Obtiene últimos 24 registros históricos (o genera sintéticos)
-  /// 2. Prepara array de 96 valores [pH1, N1, P1, K1, pH2, N2, P2, K2, ...]
-  /// 3. Llama a HuggingFace API /predict/suelo
-  /// 4. Convierte la respuesta a SoilPredictionModel
-  ///
-  /// Parámetros:
-  /// - [parcelaId]: ID de la parcela
-  ///
-  /// Retorna: SoilPredictionModel con predicción de nutrientes
-  ///
-  /// Lanza excepción si falla la llamada al API
   Future<SoilPredictionModel> predictSoilNutrients(String parcelaId) async {
     try {
       // 1. Preparar los 96 valores (24 timesteps × 4 features)
@@ -48,7 +38,7 @@ class HuggingFaceDataSource {
 
       // 2. Logs detallados del payload
       debugPrint('📦 ===== DETALLES DE LA PETICIÓN =====');
-      debugPrint('📦 URL: $_baseUrl/predict/suelo');
+      debugPrint('📦 URL: $_huggingFaceUrl/predict/suelo');
       debugPrint('📦 Total de features: ${features.length}');
       debugPrint('📦 Primeros 20 valores: ${features.take(20).toList()}');
       debugPrint('📦 Últimos 4 valores: ${features.skip(features.length - 4).toList()}');
@@ -61,7 +51,7 @@ class HuggingFaceDataSource {
       debugPrint('🚀 Enviando petición a HuggingFace...');
 
       final response = await _dio.post(
-        '$_baseUrl/predict/suelo',
+        '$_huggingFaceUrl/predict/suelo',
         data: payload,
         options: Options(
           headers: {'Content-Type': 'application/json'},
@@ -77,21 +67,17 @@ class HuggingFaceDataSource {
       debugPrint('✅ Respuesta recibida: Status ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        // 4. Convertir respuesta a modelo
         debugPrint('✅ Datos recibidos: ${response.data}');
         return SoilPredictionModel.fromHuggingFaceResponse(
           response.data as Map<String, dynamic>,
         );
       } else if (response.statusCode == 503) {
         debugPrint('⚠️ Error 503: El servicio está temporalmente no disponible');
-        debugPrint('💡 Esto puede pasar si el Space de HuggingFace está "despertando"');
-        debugPrint('💡 Recomendación: Espera 30-60 segundos e intenta nuevamente');
         throw Exception(
           'El servicio de predicción está iniciándose. Por favor, intenta nuevamente en unos segundos.',
         );
       } else {
         debugPrint('❌ Error inesperado del API: ${response.statusCode}');
-        debugPrint('❌ Respuesta: ${response.data}');
         throw Exception(
           'Error del API de HuggingFace: ${response.statusCode}',
         );
@@ -100,7 +86,6 @@ class HuggingFaceDataSource {
       debugPrint('🔴 DioException capturado:');
       debugPrint('   Tipo: ${e.type}');
       debugPrint('   Mensaje: ${e.message}');
-      debugPrint('   Response: ${e.response?.data}');
 
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout) {
@@ -122,76 +107,118 @@ class HuggingFaceDataSource {
 
   /// Prepara array de 96 valores para el modelo de ML
   ///
-  /// Formato: [pH1, N1, P1, K1, pH2, N2, P2, K2, ..., pH24, N24, P24, K24]
-  ///
-  /// Estrategia:
-  /// 1. Intenta obtener 24 registros históricos de Supabase
-  /// 2. Si no hay suficientes, completa con datos sintéticos
-  ///
-  /// Parámetros:
-  /// - [parcelaId]: ID de la parcela
-  ///
-  /// Retorna: Lista de 96 valores double
+  /// ESTRATEGIA ACTUALIZADA:
+  /// 1. Intenta obtener 24 registros desde el API de Sensor (CSV real)
+  /// 2. Si falla, genera datos sintéticos como fallback
   Future<List<double>> _prepare24Timesteps(String parcelaId) async {
     try {
-      // Intentar obtener registros históricos reales
-      final historicos = await _getHistoricalData(parcelaId);
+      // ⭐ PRIORIDAD 1: Obtener datos REALES del API de Sensor
+      debugPrint('🌱 ===== OBTENIENDO DATOS DEL SENSOR =====');
+      final sensorData = await _getDataFromSensorAPI(24);
 
-      if (historicos.length >= 24) {
-        // Tenemos suficientes datos históricos
-        debugPrint('✅ Se encontraron ${historicos.length} registros históricos');
-        return _convertToFeatureArray(historicos.take(24).toList());
+      if (sensorData.isNotEmpty) {
+        debugPrint('✅ Se obtuvieron ${sensorData.length} registros REALES del sensor');
+        return _convertToFeatureArray(sensorData);
       } else {
-        // No hay suficientes datos, generar sintéticos
-        debugPrint('⚠️ Solo hay ${historicos.length} registros históricos.');
-        debugPrint('⚠️ Generando ${24 - historicos.length} registros sintéticos...');
-
-        final synthetic = _generateSyntheticData(24 - historicos.length);
-        final combined = [...historicos, ...synthetic];
-
-        return _convertToFeatureArray(combined);
+        throw Exception('El API del sensor no devolvió datos');
       }
     } catch (e) {
-      // Si falla todo, usar solo datos sintéticos
-      debugPrint('⚠️ No se pudieron obtener datos históricos: $e');
-      debugPrint('⚠️ Usando 24 registros sintéticos completos...');
+      // FALLBACK: Si falla el API del sensor, usar sintéticos
+      debugPrint('⚠️ No se pudieron obtener datos del sensor: $e');
+      debugPrint('⚠️ Usando 24 registros sintéticos como fallback...');
 
       final synthetic = _generateSyntheticData(24);
       return _convertToFeatureArray(synthetic);
     }
   }
 
-  /// Obtiene registros históricos de suelo desde Supabase
+  /// ⭐ NUEVO: Obtiene datos REALES desde el API de Sensor (CSV)
   ///
-  /// Filtra por:
-  /// - parcela_id
-  /// - Registros que tengan pH, N, P, K no nulos
-  /// - Orden descendente por fecha (más recientes primero)
-  /// - Límite de 24 registros
-  Future<List<Map<String, dynamic>>> _getHistoricalData(
-      String parcelaId,
-      ) async {
+  /// Llama al endpoint /sensor-data del API desplegado en Vercel
+  ///
+  /// Parámetros:
+  /// - [count]: Cantidad de registros a obtener (default: 24)
+  ///
+  /// Retorna: Lista de Maps con datos reales del CSV
+  Future<List<Map<String, dynamic>>> _getDataFromSensorAPI(int count) async {
     try {
-      final response = await _supabase
-          .from('datos_historicos')
-          .select('ph, nitrogeno, fosforo, potasio')
-          .eq('parcela_id', parcelaId)
-          .not('ph', 'is', null)
-          .not('nitrogeno', 'is', null)
-          .not('fosforo', 'is', null)
-          .not('potasio', 'is', null)
-          .order('fecha_hora', ascending: false)
-          .limit(24);
+      debugPrint('📡 Llamando al API de Sensor...');
+      debugPrint('   URL: $_sensorApiUrl/sensor-data?count=$count&mode=sequential');
 
-      return (response as List)
-          .map((e) => e as Map<String, dynamic>)
-          .toList();
+      final response = await _dio.get(
+        '$_sensorApiUrl/sensor-data',
+        queryParameters: {
+          'count': count,
+          'mode': 'sequential', // Modo secuencial (avanza en el tiempo)
+        },
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+          validateStatus: (status) => status! < 500,
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = response.data as Map<String, dynamic>;
+
+        debugPrint('✅ Respuesta del Sensor API:');
+        debugPrint('   - Success: ${jsonResponse['success']}');
+        debugPrint('   - Count: ${jsonResponse['count']}');
+        debugPrint('   - Current Index: ${jsonResponse['current_index']}');
+        debugPrint('   - Total Records: ${jsonResponse['total_records']}');
+        debugPrint('   - Message: ${jsonResponse['message']}');
+
+        final dataList = jsonResponse['data'] as List;
+
+        // Convertir a formato compatible
+        final sensorData = dataList.map((item) {
+          final record = item as Map<String, dynamic>;
+          return {
+            'ph': record['ph'],
+            'nitrogeno': record['nitrogeno'],
+            'fosforo': record['fosforo'],
+            'potasio': record['potasio'],
+          };
+        }).toList();
+
+        debugPrint('✅ ${sensorData.length} registros procesados del sensor');
+
+        // Mostrar primeros 3 registros para verificar
+        if (sensorData.isNotEmpty) {
+          debugPrint('📊 Primeros 3 registros del sensor:');
+          for (int i = 0; i < (sensorData.length > 3 ? 3 : sensorData.length); i++) {
+            final r = sensorData[i];
+            debugPrint('   [$i] pH: ${r['ph']}, N: ${r['nitrogeno']}, P: ${r['fosforo']}, K: ${r['potasio']}');
+          }
+        }
+
+        return sensorData;
+      } else {
+        throw Exception(
+          'El API del sensor respondió con status ${response.statusCode}',
+        );
+      }
+    } on DioException catch (e) {
+      debugPrint('🔴 Error al llamar al API del sensor:');
+      debugPrint('   Tipo: ${e.type}');
+      debugPrint('   Mensaje: ${e.message}');
+
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        throw Exception('Timeout al conectar con el API del sensor');
+      } else if (e.type == DioExceptionType.connectionError) {
+        throw Exception('No se pudo conectar con el API del sensor');
+      } else {
+        throw Exception('Error de red con el API del sensor: ${e.message}');
+      }
     } catch (e) {
-      throw Exception('Error al obtener datos históricos: $e');
+      debugPrint('🔴 Excepción al obtener datos del sensor: $e');
+      throw Exception('Error al obtener datos del sensor: $e');
     }
   }
 
-  /// Convierte lista de registros históricos a array de 96 valores
+  /// Convierte lista de registros a array de 96 valores
   ///
   /// Formato de entrada:
   /// [
@@ -212,24 +239,25 @@ class HuggingFaceDataSource {
       features.add((record['potasio'] as num).toDouble());
     }
 
+    debugPrint('🔢 Array de features generado: ${features.length} valores');
     return features;
   }
 
-  /// Genera datos sintéticos con valores típicos para mora en Tisaleo
+  /// Genera datos sintéticos como FALLBACK
+  ///
+  /// Solo se usa si el API del sensor falla
   ///
   /// Rangos de valores generados:
   /// - pH: 6.0 - 6.7
   /// - Nitrógeno: 40 - 50 ppm
   /// - Fósforo: 25 - 35 ppm
   /// - Potasio: 20 - 30 ppm
-  ///
-  /// Parámetros:
-  /// - [count]: Cantidad de timesteps a generar
-  ///
-  /// Retorna: Lista de Maps con datos sintéticos
   List<Map<String, dynamic>> _generateSyntheticData(int count) {
     final random = Random();
     final syntheticData = <Map<String, dynamic>>[];
+
+    debugPrint('⚠️ ===== GENERANDO DATOS SINTÉTICOS =====');
+    debugPrint('⚠️ Cantidad: $count registros');
 
     for (int i = 0; i < count; i++) {
       syntheticData.add({
@@ -240,6 +268,7 @@ class HuggingFaceDataSource {
       });
     }
 
+    debugPrint('⚠️ Datos sintéticos generados exitosamente');
     return syntheticData;
   }
 }
