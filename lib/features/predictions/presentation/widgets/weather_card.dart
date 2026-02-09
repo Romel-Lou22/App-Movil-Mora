@@ -87,19 +87,14 @@ class WeatherCard extends StatelessWidget {
                       _buildDataRow(
                         icon: '🌡️',
                         label: 'Temperatura',
-                        value: '${weatherData.temperatura.toStringAsFixed(1)}°C',
+                        value: '${weatherData.temperatura.round()}°C',
                         status: _getTemperatureStatus(),
                       ),
 
                       const SizedBox(height: 12),
 
                       // Humedad
-                      _buildDataRow(
-                        icon: '💧',
-                        label: 'Humedad',
-                        value: '${weatherData.humedad.toStringAsFixed(0)}%',
-                        status: _getHumidityStatus(),
-                      ),
+
                     ],
                   ),
                 ),
@@ -136,7 +131,7 @@ class WeatherCard extends StatelessWidget {
                 Icon(Icons.cloud_outlined, size: 14, color: Color(0xFF999999)),
                 SizedBox(width: 4),
                 Text(
-                  'Datos en tiempo real - OpenWeather',
+                  'Datos en tiempo real',
                   style: TextStyle(
                     fontSize: 11,
                     color: Color(0xFF999999),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/config/routes/app_routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../predictions/presentation/providers/prediction_provider.dart';
+import '../../../weather/presentation/providers/weather_provider.dart';
 
 /// Card de preview de predicciones para el HomeScreen
 ///
@@ -48,14 +49,13 @@ class PredictionPreviewCard extends StatelessWidget {
                 else if (provider.hasError && !provider.hasData)
                   _buildErrorState(provider.errorMessage)
                 else if (provider.hasData)
-                    _buildDataState(provider)
+                    _buildDataState(provider, context.watch<WeatherProvider>())
                   else
                     _buildEmptyState(),
 
                 const SizedBox(height: 16),
 
-                // Footer con botón de acción
-                _buildFooter(context, provider),
+
               ],
             ),
           ),
@@ -142,9 +142,9 @@ class PredictionPreviewCard extends StatelessWidget {
               size: 32,
             ),
             const SizedBox(height: 12),
-            Text(
+            const Text(
               'Error al cargar',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textPrimary,
@@ -204,8 +204,12 @@ class PredictionPreviewCard extends StatelessWidget {
   }
 
   /// Estado: Con datos
-  Widget _buildDataState(PredictionProvider provider) {
+  Widget _buildDataState(PredictionProvider provider, WeatherProvider weatherProvider) {
     final soil = provider.currentSoilPrediction!;
+    final weather = weatherProvider.weather!;
+
+
+
 
     // Contar nutrientes fuera del rango óptimo
     int nutrientsOutOfRange = 0;
@@ -233,7 +237,7 @@ class PredictionPreviewCard extends StatelessWidget {
           icon: Icons.eco_outlined,
           iconColor: const Color(0xFF4CAF50),
           label: 'Nitrógeno',
-          value: '${soil.nitrogeno.toStringAsFixed(1)} ppm',
+          value: '${soil.nitrogeno.toStringAsFixed(2)} ppm',
           status: soil.nitrogenoIsOptimal ? '✅' : '⚠️',
           statusColor: soil.nitrogenoIsOptimal ? AppColors.success : Colors.orange,
         ),
@@ -245,7 +249,7 @@ class PredictionPreviewCard extends StatelessWidget {
           icon: Icons.grass_outlined,
           iconColor: const Color(0xFFFF9800),
           label: 'Fósforo',
-          value: '${soil.fosforo.toStringAsFixed(1)} ppm',
+          value: '${soil.fosforo.toStringAsFixed(2)} ppm',
           status: soil.fosforoIsOptimal ? '✅' : '⚠️',
           statusColor: soil.fosforoIsOptimal ? AppColors.success : Colors.orange,
         ),
@@ -257,9 +261,21 @@ class PredictionPreviewCard extends StatelessWidget {
           icon: Icons.spa_outlined,
           iconColor: const Color(0xFF00BCD4),
           label: 'Potasio',
-          value: '${soil.potasio.toStringAsFixed(0)} ppm',
+          value: '${soil.potasio.toStringAsFixed(2)} ppm',
           status: soil.potasioIsOptimal ? '✅' : '⚠️',
           statusColor: soil.potasioIsOptimal ? AppColors.success : Colors.orange,
+        ),
+
+        const SizedBox(height: 16),
+
+        // humedad
+        _buildSummaryRow(
+          icon: Icons.water_drop_outlined,
+          iconColor: const Color(0xFF2196F3),
+          label: 'Humedad',
+          value: '${weather.humidity} %',
+          status: soil.humedadIsOptimal ? '✅' : '⚠️',
+          statusColor: soil.humedadIsOptimal ? AppColors.success : Colors.orange,
         ),
 
         const SizedBox(height: 16),
@@ -308,18 +324,18 @@ class PredictionPreviewCard extends StatelessWidget {
                 width: 1,
               ),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.check_circle_outline,
                   color: AppColors.success,
                   size: 16,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Todos los nutrientes en rango óptimo',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppColors.success,
                       fontWeight: FontWeight.w500,
@@ -398,33 +414,5 @@ class PredictionPreviewCard extends StatelessWidget {
   }
 
   /// Footer con botón de acción
-  Widget _buildFooter(BuildContext context, PredictionProvider provider) {
-    String buttonText;
-    IconData buttonIcon;
 
-    if (!provider.hasData) {
-      buttonText = 'Obtener Predicción';
-      buttonIcon = Icons.play_arrow;
-    } else {
-      buttonText = 'Ver detalles';
-      buttonIcon = Icons.arrow_forward;
-    }
-
-    return Center(
-      child: TextButton.icon(
-        onPressed: () {
-          Navigator.pushNamed(context, AppRoutes.predictions);
-        },
-        icon: Icon(buttonIcon, size: 16),
-        label: Text(buttonText),
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          textStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
 }

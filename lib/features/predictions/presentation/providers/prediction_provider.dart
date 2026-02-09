@@ -102,10 +102,18 @@ class PredictionProvider extends ChangeNotifier {
   /// Parámetros:
   /// - [parcelaId]: ID de la parcela a analizar
   /// - [onPredictionComplete]: Callback opcional que se ejecuta después de guardar
+  bool _isFetching = false;
   Future<void> fetchPredictions(
       String parcelaId, {
         Future<void> Function(WeatherData weather, SoilPrediction soil)? onPredictionComplete,
       }) async {
+    // 🔥 Si ya está ejecutándose, ignorar
+    if (_isFetching) {
+      print('⏳ fetchPredictions ya en ejecución, ignorando llamada duplicada');
+      return;
+    }
+
+    _isFetching = true; // 🔥 Marcar como ejecutándose
     print('🔄 ===================================');
     print('🔄 INICIANDO FETCHPREDICTIONS');
     print('📍 Parcela: $parcelaId');
@@ -153,6 +161,8 @@ class PredictionProvider extends ChangeNotifier {
         } else {
           print('⚠️ No se proporcionó callback para alertas');
         }
+
+        _isFetching = false; // 🔥 Liberar
 
         print('🔄 FETCHPREDICTIONS COMPLETADO');
         print('🔄 ===================================');

@@ -57,11 +57,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
                 const CurrentWeatherCard(),
                 const SizedBox(height: 16),
-                _buildActiveAlertsCard(),
+
                 const SizedBox(height: 16),
                 const PredictionPreviewCard(),
                 const SizedBox(height: 24),
-                _buildPredictionsButton(),
+
                 const SizedBox(height: 24),
               ],
             ),
@@ -129,113 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildActiveAlertsCard() {
-    return GestureDetector(
-      onTap: () {
-        if (widget.onTabRequested != null) {
-          widget.onTabRequested!(2);
-          return;
-        }
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AlertsScreen()),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.orange.shade400, width: 3),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.orange.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'ACTIVE ALERTS',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.orange,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Row(
-                children: [
-                  Icon(Icons.ac_unit, size: 48, color: Colors.orange.shade700),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Riesgo de',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          'helada',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'En 18 horas',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Column(
-                    children: [
-                      Text(
-                        'Ver',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.secondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        'recomendación',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.secondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Icon(Icons.arrow_forward, color: AppColors.secondary, size: 24),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
 
   Widget _buildSummaryRow({
@@ -268,33 +162,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPredictionsButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: () {
-          if (widget.onTabRequested != null) {
-            widget.onTabRequested!(1);
-            return;
-          }
-          Navigator.pushNamed(context, AppRoutes.predictions);
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.secondary,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        child: const Text(
-          'VER PREDICCIONES DETALLADAS',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
-    );
-  }
+
 }

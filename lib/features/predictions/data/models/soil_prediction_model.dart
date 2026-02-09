@@ -10,89 +10,66 @@ class SoilPredictionModel extends SoilPrediction {
     required super.nitrogeno,
     required super.fosforo,
     required super.potasio,
+    super.humedad, // ✅ nuevo (opcional, no rompe nada)
   });
 
-  /// Factory constructor que crea un SoilPredictionModel desde la respuesta de HuggingFace API
-  ///
-  /// Ejemplo de JSON de HuggingFace (endpoint /predict/suelo):
-  /// ```json
-  /// {
-  ///   "ph": 6.23,
-  ///   "nitrogeno": 3.73,
-  ///   "fosforo": 3.31,
-  ///   "potasio": 153.64
-  /// }
-  /// ```
-  factory SoilPredictionModel.fromHuggingFaceResponse(
-      Map<String, dynamic> json,
-      ) {
+  factory SoilPredictionModel.fromHuggingFaceResponse(Map<String, dynamic> json) {
     return SoilPredictionModel(
       ph: (json['ph'] as num).toDouble(),
       nitrogeno: (json['nitrogeno'] as num).toDouble(),
       fosforo: (json['fosforo'] as num).toDouble(),
       potasio: (json['potasio'] as num).toDouble(),
+      // ✅ humedad NO viene del API -> se queda null
     );
   }
 
-  /// Factory constructor que crea un SoilPredictionModel desde JSON de Supabase
-  ///
-  /// Ejemplo de JSON de Supabase (tabla datos_historicos):
-  /// ```json
-  /// {
-  ///   "ph": 6.23,
-  ///   "nitrogeno": 3.73,
-  ///   "fosforo": 3.31,
-  ///   "potasio": 153.64
-  /// }
-  /// ```
   factory SoilPredictionModel.fromSupabaseJson(Map<String, dynamic> json) {
     return SoilPredictionModel(
       ph: (json['ph'] as num).toDouble(),
       nitrogeno: (json['nitrogeno'] as num).toDouble(),
       fosforo: (json['fosforo'] as num).toDouble(),
       potasio: (json['potasio'] as num).toDouble(),
+      // ✅ humedad solo si tu tabla la guarda (si no, déjalo fuera)
+      // humedad: (json['humedad'] as num?)?.toDouble(),
     );
   }
 
-  /// Convierte el modelo a un Map para guardar en Supabase
-  ///
-  /// Incluye los campos de nutrientes del suelo:
-  /// - ph
-  /// - nitrogeno
-  /// - fosforo
-  /// - potasio
   Map<String, dynamic> toSupabaseMap() {
     return {
       'ph': ph,
       'nitrogeno': nitrogeno,
       'fosforo': fosforo,
       'potasio': potasio,
+      // ✅ NO guardo humedad para no obligarte a cambiar BD
+      // Si quieres guardarla, descomenta y crea la columna:
+      // 'humedad': humedad,
     };
   }
 
-  /// Convierte la entidad SoilPrediction a SoilPredictionModel
   factory SoilPredictionModel.fromEntity(SoilPrediction entity) {
     return SoilPredictionModel(
       ph: entity.ph,
       nitrogeno: entity.nitrogeno,
       fosforo: entity.fosforo,
       potasio: entity.potasio,
+      humedad: entity.humedad, // ✅ nuevo (si viene null, ok)
     );
   }
 
-  /// Crea una copia del modelo con campos modificados
   @override
   SoilPredictionModel copyWith({
     double? ph,
     double? nitrogeno,
     double? fosforo,
     double? potasio,
+    double? humedad, // ✅ nuevo (firma compatible con el padre)
   }) {
     return SoilPredictionModel(
       ph: ph ?? this.ph,
       nitrogeno: nitrogeno ?? this.nitrogeno,
       fosforo: fosforo ?? this.fosforo,
       potasio: potasio ?? this.potasio,
+      humedad: humedad ?? this.humedad,
     );
   }
 }

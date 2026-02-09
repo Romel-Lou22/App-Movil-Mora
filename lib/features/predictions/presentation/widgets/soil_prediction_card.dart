@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/soil_prediction.dart';
+import '../../domain/entities/weather_data.dart';
 
 /// Card que muestra la predicción de nutrientes del suelo
 ///
@@ -12,14 +13,19 @@ import '../../domain/entities/soil_prediction.dart';
 /// - Recomendaciones si hay valores fuera del rango
 class SoilPredictionCard extends StatelessWidget {
   final SoilPrediction soilPrediction;
+  final WeatherData weatherData;
+
 
   const SoilPredictionCard({
     super.key,
     required this.soilPrediction,
+    required this.weatherData,
   });
 
   @override
   Widget build(BuildContext context) {
+    final soil = soilPrediction.copyWith(humedad: weatherData.humedad.toDouble());
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -113,8 +119,26 @@ class SoilPredictionCard extends StatelessWidget {
 
             const SizedBox(height: 16),
 
+            // Agua
+            _NutrientIndicator(
+              icon: '💧',
+              label: 'Humedad del Suelo',
+              value: soil.humedad != null ? '${soil.humedad!.round()}' : '--',
+              unit: '%',
+              isOptimal: soil.humedadIsOptimal,
+              isLow: soil.humedadIsLow,
+              isHigh: soil.humedadIsHigh,
+              optimalRange:
+              '${SoilPrediction.humedadMin.toInt()} - ${SoilPrediction.humedadMax.toInt()} %',
+              recommendation: soil.humedadRecommendation,
+            ),
+
+
+            const SizedBox(height: 16),
+
+
             // Resumen general
-            _buildSummary(),
+            //_buildSummary(),
 
             const SizedBox(height: 12),
 
@@ -125,7 +149,7 @@ class SoilPredictionCard extends StatelessWidget {
                 Icon(Icons.psychology_outlined, size: 14, color: Color(0xFF999999)),
                 SizedBox(width: 4),
                 Text(
-                  'Predicción con Inteligencia Artificial',
+                  'Datos API',
                   style: TextStyle(
                     fontSize: 11,
                     color: Color(0xFF999999),
@@ -138,6 +162,7 @@ class SoilPredictionCard extends StatelessWidget {
       ),
     );
   }
+
 
   /// Construye el resumen general del estado del suelo
   Widget _buildSummary() {
@@ -312,6 +337,7 @@ class _NutrientIndicator extends StatelessWidget {
             ),
             child: Text(
               '💡 $recommendation',
+              textAlign: TextAlign.justify,
               style: const TextStyle(
                 fontSize: 11,
                 color: Color(0xFF666666),

@@ -188,7 +188,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart_outlined),
             activeIcon: Icon(Icons.bar_chart),
-            label: 'Predicciones',
+            label: 'Datos Actuales',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications_outlined),

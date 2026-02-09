@@ -194,23 +194,7 @@ class _CurrentWeatherCardState extends State<CurrentWeatherCard> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.water_drop_outlined,
-                              size: 14,
-                              color: AppColors.textSecondary.withOpacity(0.8),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Humedad: ${weather.humidity}%',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
+
                       ],
                     ),
                   ),

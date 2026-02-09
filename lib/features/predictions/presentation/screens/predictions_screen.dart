@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/prediction_provider.dart';
-import '../widgets/weather_card.dart';
-import '../widgets/soil_prediction_card.dart';
+
 import '../../../alerts/presentation/providers/alert_provider.dart';
 import '../../../parcelas/presentation/providers/parcela_provider.dart';
+import '../providers/prediction_provider.dart';
+import '../widgets/soil_prediction_card.dart';
+import '../widgets/weather_card.dart';
+import '../../domain/entities/soil_prediction.dart';
+import '../../domain/entities/weather_data.dart';
 
 /// Pantalla principal de predicciones
 ///
@@ -21,6 +24,13 @@ class PredictionsScreen extends StatefulWidget {
 }
 
 class _PredictionsScreenState extends State<PredictionsScreen> {
+  bool _isInitialized = false;
+  String? _lastProcessedParcelaId;
+
+
+
+
+
   @override
   void initState() {
     super.initState();
@@ -28,14 +38,34 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
 
-      // Escuchar cambios en la parcela
+
+
+
+      // Agregar listener para cambios de parcela
       context.read<ParcelaProvider>().addListener(_onParcelaChanged);
     });
   }
 
+  /// Se ejecuta cuando ParcelaProvider notifica cambios
   void _onParcelaChanged() {
     final parcelaId = context.read<ParcelaProvider>().parcelaSeleccionada?.id;
-    if (parcelaId != null && mounted) {
+
+    // 🔥 SOLO actualizar si:
+    // 1. Ya se inicializó la pantalla
+    // 2. La parcela es diferente a la última procesada
+    // 3. El widget está montado
+    // 4. No hay una predicción en progreso
+    if (_isInitialized &&
+        parcelaId != null &&
+        parcelaId != _lastProcessedParcelaId &&
+        mounted &&
+        !context.read<PredictionProvider>().isLoading) {
+
+      print('🔄 ===================================');
+      print('🔄 CAMBIO DE PARCELA DETECTADO');
+      print('📍 De: $_lastProcessedParcelaId → A: $parcelaId');
+      print('🔄 ===================================');
+
       _fetchPredictions(parcelaId);
     }
   }
@@ -46,14 +76,26 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
     super.dispose();
   }
 
-  /// Carga los datos iniciales
+  /// Carga los datos iniciales (SOLO UNA VEZ)
   Future<void> _loadInitialData() async {
-    // Obtener el parcelaId del provider de parcelas
+    if (_isInitialized) {
+      print('⚠️ _loadInitialData ya fue ejecutado, ignorando...');
+      return;
+    }
+
+    print('🚀 ===================================');
+    print('🚀 INICIALIZACIÓN DE PANTALLA');
+    print('🚀 ===================================');
+
     final parcelaProvider = context.read<ParcelaProvider>();
     final parcelaId = parcelaProvider.parcelaSeleccionada?.id;
 
     if (parcelaId != null) {
+      _lastProcessedParcelaId = parcelaId;
       await _fetchPredictions(parcelaId);
+      _isInitialized = true;
+
+      print('✅ Inicialización completada');
     } else {
       _showError('No hay una parcela seleccionada');
     }
@@ -61,11 +103,21 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
 
   /// Obtiene las predicciones para una parcela específica
   Future<void> _fetchPredictions(String parcelaId) async {
-    print('🎯 ===================================');
-    print('🎯 BOTÓN PRESIONADO - Iniciando flujo completo');
-    print('📍 Parcela: $parcelaId');
-
     final predictionProvider = context.read<PredictionProvider>();
+
+    // 🔥 CRÍTICO: Si ya está cargando, no hacer nada
+    if (predictionProvider.isLoading) {
+      print('⏳ Ya hay una predicción en progreso, ignorando solicitud...');
+      return;
+    }
+
+    print('🎯 ===================================');
+    print('🎯 INICIANDO PREDICCIÓN');
+    print('📍 Parcela: $parcelaId');
+    print('🎯 ===================================');
+
+    // Actualizar la última parcela procesada
+    _lastProcessedParcelaId = parcelaId;
 
     // Llamar a fetchPredictions CON callback para alertas
     await predictionProvider.fetchPredictions(
@@ -118,10 +170,10 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
       },
     );
 
-    print('🎯 FLUJO COMPLETO TERMINADO');
+    print('🎯 PREDICCIÓN COMPLETADA');
     print('🎯 ===================================');
-  }
 
+  }
   /// Muestra un mensaje de error
   void _showError(String message) {
     if (!mounted) return;
@@ -407,6 +459,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             // Card de predicción de suelo
             SoilPredictionCard(
               soilPrediction: soil,
+              weatherData: weather,
             ),
 
             const SizedBox(height: 16),
@@ -417,7 +470,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             const SizedBox(height: 16),
 
             // Botones de acción
-            _buildActionButtons(parcelaId),
+
 
             const SizedBox(height: 32),
           ],
@@ -531,42 +584,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
     );
   }
 
-  /// Botones de acción
-  Widget _buildActionButtons(String parcelaId) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {
-              _showSuccess('Función de historial próximamente');
-            },
-            icon: const Icon(Icons.history),
-            label: const Text('Ver Historial'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF6B7C3B),
-              side: const BorderSide(color: Color(0xFF6B7C3B)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: context.watch<PredictionProvider>().isLoading
-                ? null
-                : () => _fetchPredictions(parcelaId),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Actualizar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6B7C3B),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+
 
   /// Muestra el diálogo de información
   void _showInfoDialog() {
