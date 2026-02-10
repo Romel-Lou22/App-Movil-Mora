@@ -59,6 +59,11 @@ class AppRoutes {
   /// Ruta de configuración
   static const String settings = '/settings';
 
+  /// Ruta de estadísticas (gráficas)
+  static const String statistics = '/statistics';
+
+// NOTA: profile fue reemplazado por statistics
+
   // === Ruta Inicial - ✅ CAMBIADO ===
 
   /// Ruta inicial de la aplicación (splash screen)

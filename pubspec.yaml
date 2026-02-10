@@ -9,13 +9,17 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_localizations: # ✅ AGREGAR ESTA LÍNEA
+
+  flutter_localizations:
     sdk: flutter
+
+  flutter_riverpod: ^2.5.1
 
   # UI & Icons
   cupertino_icons: ^1.0.6
   table_calendar: ^3.0.9
-  # State Management
+
+  # State Management (Provider clásico)
   provider: ^6.1.2
 
   # Backend (Supabase)
@@ -50,7 +54,7 @@ dependencies:
   # Variables de entorno
   flutter_dotenv: ^5.1.0
 
-  # Equatable (para comparaciones)
+  # Equatable (comparaciones de estado)
   equatable: ^2.0.5
 
   # Dartz (Either para manejo de errores)
@@ -81,7 +85,6 @@ flutter:
     - assets/icons/
     - .env
 
-  # Descomentar cuando tengas fuentes personalizadas
   # fonts:
   #   - family: Roboto
   #     fonts:
@@ -89,7 +92,6 @@ flutter:
   #       - asset: assets/fonts/Roboto-Bold.ttf
   #         weight: 700
 
-# Configuración de launcher icons (para generar íconos después)
 flutter_launcher_icons:
   android: true
   ios: false

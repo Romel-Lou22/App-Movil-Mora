@@ -25,6 +25,7 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
   int _completedTasks = 0;
   bool _hasError = false;
   String _errorMessage = '';
+  bool _userHasParcelas = false; // 🆕 Bandera para saber si tiene parcelas
 
   @override
   void initState() {
@@ -41,77 +42,166 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // Definir tareas
-    _tasks.addAll([
-      LoadingTask(
-        name: 'Cargando parcelas',
-        icon: Icons.terrain,
-        future: () => _loadParcelas(),
-      ),
-      LoadingTask(
-        name: 'Consultando clima',
-        icon: Icons.wb_sunny,
-        future: () => _loadWeather(),
-      ),
-      LoadingTask(
-        name: 'Obteniendo predicciones',
-        icon: Icons.insights,
-        future: () => _loadPredictions(),
-      ),
-      LoadingTask(
-        name: 'Verificando alertas',
-        icon: Icons.notification_important,
-        future: () => _loadAlerts(),
-      ),
-    ]);
-
+    // 🆕 Las tareas se definirán dinámicamente después de cargar parcelas
     // Iniciar carga
     _startLoading();
   }
 
   Future<void> _loadParcelas() async {
+    debugPrint('📦 [LOADING] Cargando parcelas...');
     final provider = context.read<ParcelaProvider>();
     await provider.fetchParcelas();
-    await Future.delayed(const Duration(milliseconds: 500));
+
+    // 🆕 Verificar si el usuario tiene parcelas
+    _userHasParcelas = provider.hasParcelas;
+
+    debugPrint('📦 [LOADING] Parcelas cargadas: ${provider.cantidadParcelas}');
+    debugPrint('📦 [LOADING] Usuario tiene parcelas: $_userHasParcelas');
+
+    await Future.delayed(const Duration(milliseconds: 300));
   }
 
   Future<void> _loadWeather() async {
     final parcelaProvider = context.read<ParcelaProvider>();
     final weatherProvider = context.read<WeatherProvider>();
 
+    // 🆕 Validar que hay parcela seleccionada
     if (parcelaProvider.parcelaSeleccionada != null) {
       final parcela = parcelaProvider.parcelaSeleccionada!;
+      debugPrint('🌤️ [LOADING] Cargando clima para: ${parcela.nombreParcela}');
+
       await weatherProvider.fetchCurrentWeather(
-        lat: parcela.latitud ?? -1.3667,
-        lon: parcela.longitud ?? -78.6833,
+        lat: parcela.latitudEfectiva,
+        lon: parcela.longitudEfectiva,
       );
+
+      debugPrint('✅ [LOADING] Clima cargado exitosamente');
+    } else {
+      debugPrint('⚠️ [LOADING] No hay parcela seleccionada, omitiendo clima');
     }
-    await Future.delayed(const Duration(milliseconds: 500));
+
+    await Future.delayed(const Duration(milliseconds: 300));
   }
 
   Future<void> _loadPredictions() async {
     final parcelaProvider = context.read<ParcelaProvider>();
     final provider = context.read<PredictionProvider>();
-    await provider.fetchPredictions(parcelaProvider.parcelaSeleccionada!.id);
-    await Future.delayed(const Duration(milliseconds: 500));
+
+    // 🆕 Validar que hay parcela seleccionada
+    if (parcelaProvider.parcelaSeleccionada != null) {
+      final parcelaId = parcelaProvider.parcelaSeleccionada!.id;
+      debugPrint('🔮 [LOADING] Cargando predicciones para parcela: $parcelaId');
+
+      await provider.fetchPredictions(parcelaId);
+
+      debugPrint('✅ [LOADING] Predicciones cargadas exitosamente');
+    } else {
+      debugPrint('⚠️ [LOADING] No hay parcela seleccionada, omitiendo predicciones');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
   }
 
   Future<void> _loadAlerts() async {
     final parcelaProvider = context.read<ParcelaProvider>();
     final alertProvider = context.read<AlertProvider>();
 
+    // 🆕 Validar que hay parcela seleccionada
     if (parcelaProvider.parcelaSeleccionada != null) {
-      await alertProvider.fetchActiveAlerts(
-        parcelaProvider.parcelaSeleccionada!.id,
-      );
+      final parcelaId = parcelaProvider.parcelaSeleccionada!.id;
+      debugPrint('🚨 [LOADING] Cargando alertas para parcela: $parcelaId');
+
+      await alertProvider.fetchActiveAlerts(parcelaId);
+
+      debugPrint('✅ [LOADING] Alertas cargadas exitosamente');
+    } else {
+      debugPrint('⚠️ [LOADING] No hay parcela seleccionada, omitiendo alertas');
     }
-    await Future.delayed(const Duration(milliseconds: 500));
+
+    await Future.delayed(const Duration(milliseconds: 300));
   }
 
   Future<void> _startLoading() async {
     debugPrint('🚀 [LOADING] Iniciando carga de datos...');
 
-    for (int i = 0; i < _tasks.length; i++) {
+    // 🆕 PASO 1: Cargar parcelas PRIMERO (siempre)
+    setState(() {
+      _tasks.add(LoadingTask(
+        name: 'Cargando parcelas',
+        icon: Icons.terrain,
+        future: () => _loadParcelas(),
+      ));
+    });
+
+    // Ejecutar carga de parcelas
+    setState(() {
+      _tasks[0].status = TaskStatus.loading;
+    });
+
+    try {
+      await _tasks[0].future();
+      if (mounted) {
+        setState(() {
+          _tasks[0].status = TaskStatus.completed;
+          _completedTasks++;
+        });
+      }
+      debugPrint('✅ [LOADING] Parcelas cargadas');
+    } catch (e) {
+      debugPrint('❌ [LOADING] Error al cargar parcelas: $e');
+      if (mounted) {
+        setState(() {
+          _tasks[0].status = TaskStatus.error;
+          _tasks[0].errorMessage = e.toString();
+          _hasError = true;
+          _errorMessage = 'Error al cargar parcelas: $e';
+        });
+      }
+      return; // Detener si falla la carga de parcelas
+    }
+
+    await Future.delayed(const Duration(milliseconds: 200));
+
+    // 🆕 PASO 2: Agregar tareas condicionales basadas en si tiene parcelas
+    if (_userHasParcelas) {
+      debugPrint('✅ [LOADING] Usuario tiene parcelas, cargando datos completos');
+
+      setState(() {
+        _tasks.addAll([
+          LoadingTask(
+            name: 'Consultando clima',
+            icon: Icons.wb_sunny,
+            future: () => _loadWeather(),
+          ),
+          LoadingTask(
+            name: 'Obteniendo predicciones',
+            icon: Icons.insights,
+            future: () => _loadPredictions(),
+          ),
+          LoadingTask(
+            name: 'Verificando alertas',
+            icon: Icons.notification_important,
+            future: () => _loadAlerts(),
+          ),
+        ]);
+      });
+    } else {
+      debugPrint('⚠️ [LOADING] Usuario SIN parcelas, omitiendo cargas adicionales');
+
+      // Agregar tarea informativa
+      setState(() {
+        _tasks.add(LoadingTask(
+          name: 'Preparando interfaz',
+          icon: Icons.check_circle,
+          future: () async {
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+        ));
+      });
+    }
+
+    // 🆕 PASO 3: Ejecutar tareas restantes
+    for (int i = 1; i < _tasks.length; i++) {
       if (_hasError) break;
 
       setState(() {
@@ -129,19 +219,31 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
         debugPrint('✅ [LOADING] ${_tasks[i].name} completado');
       } catch (e) {
         debugPrint('❌ [LOADING] Error en ${_tasks[i].name}: $e');
+
+        // 🆕 No marcar como error crítico si es un problema menor
         if (mounted) {
           setState(() {
             _tasks[i].status = TaskStatus.error;
             _tasks[i].errorMessage = e.toString();
-            _hasError = true;
-            _errorMessage = 'Error al cargar ${_tasks[i].name}';
+
+            // Solo marcar como error crítico si es parcelas o predicciones
+            if (_tasks[i].name.contains('parcelas') ||
+                _tasks[i].name.contains('predicciones')) {
+              _hasError = true;
+              _errorMessage = 'Error al cargar ${_tasks[i].name}';
+            } else {
+              // Errores menores: continuar
+              _completedTasks++;
+              debugPrint('⚠️ [LOADING] Error no crítico, continuando...');
+            }
           });
         }
       }
 
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 200));
     }
 
+    // 🆕 PASO 4: Navegar al home
     if (!_hasError && mounted) {
       debugPrint('✅ [LOADING] Todas las tareas completadas');
       await Future.delayed(const Duration(milliseconds: 500));
@@ -151,6 +253,13 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
 
   void _navigateToHome() {
     debugPrint('🏠 [LOADING] Navegando a Home');
+
+    if (_userHasParcelas) {
+      debugPrint('✅ [LOADING] Usuario con parcelas → Home completo');
+    } else {
+      debugPrint('⚠️ [LOADING] Usuario SIN parcelas → Home con mensaje');
+    }
+
     Navigator.of(context).pushReplacementNamed(AppRoutes.home);
   }
 
@@ -160,12 +269,15 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
       _hasError = false;
       _errorMessage = '';
       _completedTasks = 0;
-      for (var task in _tasks) {
-        task.status = TaskStatus.pending;
-        task.errorMessage = null;
-      }
+      _userHasParcelas = false;
+      _tasks.clear();
     });
     _startLoading();
+  }
+
+  void _skipAndContinue() {
+    debugPrint('➡️ [LOADING] Omitiendo errores y continuando...');
+    _navigateToHome();
   }
 
   @override
@@ -202,7 +314,7 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
                 children: [
                   // Header
                   const SizedBox(height: 40),
-                  Text(
+                  const Text(
                     'EcoMora',
                     style: TextStyle(
                       color: Colors.white,
@@ -250,7 +362,8 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
                   const SizedBox(height: 40),
 
                   // Lista de tareas
-                  ..._tasks.map((task) => _buildTaskItem(task)),
+                  if (_tasks.isNotEmpty)
+                    ..._tasks.map((task) => _buildTaskItem(task)),
 
                   const Spacer(),
 
@@ -275,7 +388,7 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
 
                   const SizedBox(height: 20),
 
-                  // Error o botón reintentar
+                  // Error o botones
                   if (_hasError) ...[
                     Text(
                       _errorMessage,
@@ -283,13 +396,27 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _retry,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.black,
-                      ),
-                      child: const Text('Reintentar'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          onPressed: _retry,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.black,
+                          ),
+                          child: const Text('Reintentar'),
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton(
+                          onPressed: _skipAndContinue,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: primaryColor),
+                            foregroundColor: primaryColor,
+                          ),
+                          child: const Text('Continuar'),
+                        ),
+                      ],
                     ),
                   ],
                 ],

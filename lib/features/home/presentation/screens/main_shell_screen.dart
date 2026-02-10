@@ -6,7 +6,8 @@ import '../../../alerts/presentation/screens/alerts_screen.dart';
 import '../../../parcelas/presentation/providers/parcela_provider.dart';
 import '../../../parcelas/presentation/screens/parcelas_list_screen.dart';
 import '../../../predictions/presentation/screens/predictions_screen.dart';
-import '../../../profile/presentation/screens/grafica_screen.dart';
+
+import '../../../statistics/presentation/pages/statistics_page.dart';
 import '../widgets/home_drawer.dart';
 import 'home_screen.dart';
 
@@ -23,7 +24,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   // Títulos por tab
   final List<String> _titles = const [
     '',
-    'Predicciones',
+    'Datos Actuales',
     'Alertas',
     'Parcelas',
     'Gráfico',
@@ -40,7 +41,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       const PredictionsScreen(),
       const AlertsScreen(),
       const ParcelasListScreen(),
-      const GraficaScreen(),
+      const StatisticsPage(), // ← NUEVO
     ];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -94,19 +95,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
       case 3: // Parcelas
         return [
-          IconButton(
-            icon: const Icon(Icons.add_location_alt, color: Colors.white),
-            tooltip: 'Agregar parcela',
-            onPressed: () {
-              // TODO: Navegar a pantalla de agregar parcela
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Función de agregar parcela próximamente'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-          ),
+
 
         ];
 

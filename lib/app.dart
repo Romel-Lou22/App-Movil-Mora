@@ -63,6 +63,11 @@ import 'features/home/presentation/screens/main_shell_screen.dart';
 //==Loading Screen Imports==
 import 'features/loading/presentation/screens/data_loading_screen.dart';
 
+// ===== STATISTICS IMPORTS ===== 👈 NUEVO
+import 'features/statistics/presentation/pages/statistics_page.dart';
+import 'features/statistics/presentation/providers/statistics_provider.dart';
+import 'features/statistics/services/statistics_service.dart';
+
 // ===== WEATHER IMPORTS =====
 import 'features/weather/data/datasources/openweather_datasource.dart';
 import 'features/weather/data/repositories/weather_repository_impl.dart';
@@ -173,6 +178,16 @@ class EcoMoraApp extends StatelessWidget {
             );
           },
         ),
+
+        // ===== STATISTICS PROVIDER ===== 👈 NUEVO
+        ChangeNotifierProvider(
+          create: (_) {
+            debugPrint('🏗️ [PROVIDER] Creando StatisticsProvider');
+            final service = StatisticsService();
+
+            return StatisticsProvider(service: service);
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'EcoMora',
@@ -229,10 +244,9 @@ class EcoMoraApp extends StatelessWidget {
           useMaterial3: true,
         ),
 
-        // ===== CORRECCIÓN: Usar home en lugar de initialRoute =====
-        home: const SplashScreen(), // ← CAMBIADO
+        home: const SplashScreen(),
 
-        // Definición de rutas (sin la ruta '/')
+        // Definición de rutas
         routes: {
           // === Rutas de Autenticación ===
           AppRoutes.login: (context) {
@@ -243,7 +257,6 @@ class EcoMoraApp extends StatelessWidget {
             debugPrint('🎬 [ROUTE] Navegando a RegisterScreen');
             return const RegisterScreen();
           },
-          //===Ruta de carga de datos inicial===
           AppRoutes.loading: (context) {
             debugPrint('🎬 [ROUTE] Navegando a DataLoadingScreen');
             return const DataLoadingScreen();
@@ -281,13 +294,13 @@ class EcoMoraApp extends StatelessWidget {
             debugPrint('🎬 [ROUTE] Navegando a PredictionsScreen');
             return const PredictionsScreen();
           },
-          AppRoutes.profile: (context) {
-            debugPrint('🎬 [ROUTE] Navegando a GraficaScreen');
-            return const GraficaScreen();
+
+          AppRoutes.statistics: (context) {
+            debugPrint('🎬 [ROUTE] Navegando a StatisticsPage');
+            return const StatisticsPage();
           },
         },
 
-        // ===== AGREGAR onUnknownRoute =====
         onUnknownRoute: (settings) {
           debugPrint('⚠️ [ROUTE] Ruta desconocida: ${settings.name}');
           return MaterialPageRoute(
