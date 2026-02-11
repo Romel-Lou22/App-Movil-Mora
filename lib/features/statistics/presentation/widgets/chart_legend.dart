@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 
-/// Leyenda de la gráfica con los colores por severidad
+/// Leyenda de la gráfica con los colores por parámetro
 class ChartLegend extends StatelessWidget {
   const ChartLegend({Key? key}) : super(key: key);
 
@@ -18,8 +18,8 @@ class ChartLegend extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'LEYENDA DE SEVERIDAD',
+          const Text(
+            'LEYENDA DE PARÁMETROS',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
@@ -33,18 +33,22 @@ class ChartLegend extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    _buildLegendItem('Crítica', const Color(0xFFDC2626)),
+                    _buildLegendItem('N (Nitrógeno)', const Color(0xFF7B2869)),
                     const SizedBox(height: 8),
-                    _buildLegendItem('Media', const Color(0xFFFBBF24)),
+                    _buildLegendItem('pH (Acidez)', const Color(0xFFF59E0B)),
+                    const SizedBox(height: 8),
+                    _buildLegendItem('Humedad', const Color(0xFF0EA5E9)),
                   ],
                 ),
               ),
               Expanded(
                 child: Column(
                   children: [
-                    _buildLegendItem('Alta', const Color(0xFFF59E0B)),
+                    _buildLegendItem('K (Potasio)', const Color(0xFF10B981)),
                     const SizedBox(height: 8),
-                    _buildLegendItem('Baja', const Color(0xFF10B981)),
+                    _buildLegendItem('P (Fósforo)', const Color(0xFFEF4444)),
+                    const SizedBox(height: 8),
+                    _buildLegendItem('Temperatura', const Color(0xFF06B6D4)),
                   ],
                 ),
               ),

@@ -15,9 +15,7 @@ class SummaryCard extends StatelessWidget {
     final total = summary['total'] as int? ?? 0;
     final criticas = summary['criticas'] as int? ?? 0;
     final altas = summary['altas'] as int? ?? 0;
-    final medias = summary['medias'] as int? ?? 0;
-    final bajas = summary['bajas'] as int? ?? 0;
-    final tipoMasFrecuente = summary['tipo_mas_frecuente'] as String? ?? 'ninguno';
+    final parametroMasAfectado = summary['parametro_mas_afectado'] as String? ?? 'ninguno';
     final semanaCritica = summary['semana_critica'] as int? ?? 1;
 
     return Container(
@@ -81,10 +79,10 @@ class SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // Tipo más frecuente
+          // Parámetro más afectado
           _buildSummaryRow(
-            'Tipo más frecuente:',
-            _formatTipoAlerta(tipoMasFrecuente),
+            'Parámetro más afectado:',
+            _formatParametro(parametroMasAfectado),
             AppColors.primary,
           ),
           const SizedBox(height: 8),
@@ -124,11 +122,17 @@ class SummaryCard extends StatelessWidget {
     );
   }
 
-  /// Formatear nombre del tipo de alerta
-  String _formatTipoAlerta(String tipo) {
-    if (tipo == 'ninguno') return 'Ninguno';
+  /// Formatear nombre del parámetro
+  String _formatParametro(String parametro) {
+    if (parametro == 'ninguno') return 'Ninguno';
 
-    // Capitalizar primera letra
-    return tipo.substring(0, 1).toUpperCase() + tipo.substring(1).toLowerCase();
+    // Capitalizar y formatear
+    final formatted = parametro
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
+        .join(' ');
+
+    return formatted;
   }
 }

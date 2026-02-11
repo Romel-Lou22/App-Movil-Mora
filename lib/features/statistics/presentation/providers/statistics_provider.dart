@@ -9,7 +9,7 @@ class StatisticsProvider extends ChangeNotifier {
 
   // === Estado ===
   bool _isLoading = false;
-  Map<String, Map<String, int>> _weeklyData = {};
+  Map<String, Map<String, double>> _weeklyData = {}; // ✅ double para porcentajes
   Map<String, dynamic> _summary = {};
   String? _error;
   int _selectedMonth = DateTime.now().month;
@@ -17,7 +17,7 @@ class StatisticsProvider extends ChangeNotifier {
 
   // === Getters ===
   bool get isLoading => _isLoading;
-  Map<String, Map<String, int>> get weeklyData => _weeklyData;
+  Map<String, Map<String, double>> get weeklyData => _weeklyData; // ✅ double
   Map<String, dynamic> get summary => _summary;
   String? get error => _error;
   int get selectedMonth => _selectedMonth;
@@ -33,7 +33,7 @@ class StatisticsProvider extends ChangeNotifier {
 
     try {
       final results = await Future.wait([
-        _service.getAlertsByWeekAndSeverity(
+        _service.getAlertsByWeekAndParameter( // ✅ Cambio de método
           parcelaId: parcelaId,
           year: _selectedYear,
           month: _selectedMonth,
@@ -45,13 +45,13 @@ class StatisticsProvider extends ChangeNotifier {
         ),
       ]);
 
-      _weeklyData = results[0] as Map<String, Map<String, int>>;
+      _weeklyData = results[0] as Map<String, Map<String, double>>;
       _summary = results[1] as Map<String, dynamic>;
       _isLoading = false;
       _error = null;
 
       notifyListeners();
-      debugPrint('📊 Datos cargados para parcela: $parcelaId');
+      debugPrint('📊 Datos cargados - Total alertas: ${_summary['total']}');
     } catch (e) {
       _isLoading = false;
       _error = 'Error al cargar datos: ${e.toString()}';

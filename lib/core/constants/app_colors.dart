@@ -88,4 +88,7 @@ class AppColors {
 
   /// Icono en botones
   static const Color iconOnButton = Color(0xFFFFFFFF);
+
+  static Color get critical => const Color(0xFFDC2626); // Rojo (rojo intenso)
+
 }

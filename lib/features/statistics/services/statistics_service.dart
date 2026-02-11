@@ -4,48 +4,54 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class StatisticsService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// Obtener alertas agrupadas por semana y severidad
+  /// Obtener alertas agrupadas por semana y PARÁMETRO (no severidad)
   ///
-  /// Retorna un Map con la estructura:
+  /// Retorna porcentajes sobre el total del mes:
   /// {
-  ///   'semana_1': {'critica': 2, 'alta': 1, 'media': 0, 'baja': 1},
-  ///   'semana_2': {'critica': 5, 'alta': 2, 'media': 1, 'baja': 0},
+  ///   'semana_1': {'nitrogeno': 10.5, 'fosforo': 5.2, 'potasio': 8.1, 'ph': 3.5, 'humedad': 12.0, 'temperatura': 7.5},
+  ///   'semana_2': {...},
   ///   ...
   /// }
-  Future<Map<String, Map<String, int>>> getAlertsByWeekAndSeverity({
+  Future<Map<String, Map<String, double>>> getAlertsByWeekAndParameter({
     required String parcelaId,
     required int year,
     required int month,
   }) async {
     try {
-      // Calcular primer y último día del mes
       final firstDay = DateTime(year, month, 1);
       final lastDay = DateTime(year, month + 1, 0, 23, 59, 59);
 
-      // Consultar alertas del mes
+      // Consultar todas las alertas del mes
       final response = await _supabase
           .from('alertas_historial')
-          .select('fecha_alerta, severidad')
+          .select('fecha_alerta, parametro')
           .eq('parcela_id', parcelaId)
           .gte('fecha_alerta', firstDay.toIso8601String())
           .lte('fecha_alerta', lastDay.toIso8601String())
-          .order('fecha_alerta');
+          .order('fecha_alerta') as List<dynamic>;
 
-      // Agrupar por semana
-      final Map<String, Map<String, int>> weeklyData = {
-        'semana_1': {'critica': 0, 'alta': 0, 'media': 0, 'baja': 0},
-        'semana_2': {'critica': 0, 'alta': 0, 'media': 0, 'baja': 0},
-        'semana_3': {'critica': 0, 'alta': 0, 'media': 0, 'baja': 0},
-        'semana_4': {'critica': 0, 'alta': 0, 'media': 0, 'baja': 0},
+      // Total de alertas del mes
+      final totalAlertas = response.length;
+
+      // Inicializar estructura
+      final Map<String, Map<String, int>> weeklyCount = {
+        'semana_1': {'nitrogeno': 0, 'fosforo': 0, 'potasio': 0, 'ph': 0, 'humedad': 0, 'temperatura': 0},
+        'semana_2': {'nitrogeno': 0, 'fosforo': 0, 'potasio': 0, 'ph': 0, 'humedad': 0, 'temperatura': 0},
+        'semana_3': {'nitrogeno': 0, 'fosforo': 0, 'potasio': 0, 'ph': 0, 'humedad': 0, 'temperatura': 0},
+        'semana_4': {'nitrogeno': 0, 'fosforo': 0, 'potasio': 0, 'ph': 0, 'humedad': 0, 'temperatura': 0},
       };
 
+      // Contar alertas por semana y parámetro
       for (var alert in response) {
-        final fechaAlerta =
-        DateTime.parse(alert['fecha_alerta'] as String);
-        final dayOfMonth = fechaAlerta.day;
-        final severidad = alert['severidad'].toString().toLowerCase();
+        final fechaStr = alert['fecha_alerta'] as String;
+        final fecha = DateTime.parse(fechaStr);
+        final dayOfMonth = fecha.day;
 
-        // Determinar semana (1-7 = sem1, 8-14 = sem2, etc.)
+        // Obtener parámetro y normalizarlo
+        final parametroRaw = (alert['parametro'] as String).toLowerCase();
+        final parametro = _normalizeParameter(parametroRaw);
+
+        // Determinar semana
         String weekKey;
         if (dayOfMonth <= 7) {
           weekKey = 'semana_1';
@@ -58,30 +64,72 @@ class StatisticsService {
         }
 
         // Incrementar contador
-        if (weeklyData[weekKey]!.containsKey(severidad)) {
-          weeklyData[weekKey]![severidad] = weeklyData[weekKey]![severidad]! + 1;
+        if (weeklyCount[weekKey]!.containsKey(parametro)) {
+          weeklyCount[weekKey]![parametro] = weeklyCount[weekKey]![parametro]! + 1;
         }
       }
 
-      return weeklyData;
+      // Convertir a porcentajes
+      final Map<String, Map<String, double>> weeklyPercentages = {};
+
+      if (totalAlertas > 0) {
+        weeklyCount.forEach((week, params) {
+          weeklyPercentages[week] = {};
+          params.forEach((param, count) {
+            final percentage = (count / totalAlertas) * 100;
+            weeklyPercentages[week]![param] = double.parse(percentage.toStringAsFixed(2));
+          });
+        });
+      } else {
+        // Si no hay alertas, todo es 0%
+        weeklyPercentages['semana_1'] = {'nitrogeno': 0, 'fosforo': 0, 'potasio': 0, 'ph': 0, 'humedad': 0, 'temperatura': 0};
+        weeklyPercentages['semana_2'] = {'nitrogeno': 0, 'fosforo': 0, 'potasio': 0, 'ph': 0, 'humedad': 0, 'temperatura': 0};
+        weeklyPercentages['semana_3'] = {'nitrogeno': 0, 'fosforo': 0, 'potasio': 0, 'ph': 0, 'humedad': 0, 'temperatura': 0};
+        weeklyPercentages['semana_4'] = {'nitrogeno': 0, 'fosforo': 0, 'potasio': 0, 'ph': 0, 'humedad': 0, 'temperatura': 0};
+      }
+
+      return weeklyPercentages;
     } catch (e) {
       print('Error al obtener estadísticas: $e');
       rethrow;
     }
   }
 
-  /// Obtener resumen del mes (totales)
-  ///
-  /// Retorna:
-  /// {
-  ///   'total': 29,
-  ///   'criticas': 12,
-  ///   'altas': 8,
-  ///   'medias': 6,
-  ///   'bajas': 3,
-  ///   'tipo_mas_frecuente': 'helada',
-  ///   'semana_critica': 2
-  /// }
+  /// Normalizar nombre del parámetro desde la BD
+  String _normalizeParameter(String parametro) {
+    // Mapeo de nombres de BD a nombres cortos
+    final Map<String, String> mapping = {
+      'nitrógeno (n)': 'nitrogeno',
+      'nitrogeno (n)': 'nitrogeno',
+      'nitrógeno': 'nitrogeno',
+      'nitrogeno': 'nitrogeno',
+      'n': 'nitrogeno',
+
+      'fósforo (p)': 'fosforo',
+      'fosforo (p)': 'fosforo',
+      'fósforo': 'fosforo',
+      'fosforo': 'fosforo',
+      'p': 'fosforo',
+
+      'potasio (k)': 'potasio',
+      'potasio': 'potasio',
+      'k': 'potasio',
+
+      'ph': 'ph',
+      'ph (acidez)': 'ph',
+      'acidez': 'ph',
+
+      'humedad del suelo': 'humedad',
+      'humedad': 'humedad',
+
+      'temperatura': 'temperatura',
+      'temperatura del aire': 'temperatura',
+    };
+
+    return mapping[parametro] ?? 'otro';
+  }
+
+  /// Obtener resumen del mes
   Future<Map<String, dynamic>> getMonthSummary({
     required String parcelaId,
     required int year,
@@ -93,22 +141,22 @@ class StatisticsService {
 
       final response = await _supabase
           .from('alertas_historial')
-          .select('fecha_alerta, severidad, tipo_alerta')
+          .select('fecha_alerta, severidad, tipo_alerta, parametro')
           .eq('parcela_id', parcelaId)
           .gte('fecha_alerta', firstDay.toIso8601String())
-          .lte('fecha_alerta', lastDay.toIso8601String());
+          .lte('fecha_alerta', lastDay.toIso8601String()) as List<dynamic>;
 
-      // Contar por severidad
       int criticas = 0, altas = 0, medias = 0, bajas = 0;
       Map<String, int> tipoCount = {};
+      Map<String, int> paramCount = {};
       Map<int, int> weekCount = {};
 
       for (var alert in response) {
-        final severidad = alert['severidad'].toString().toLowerCase();
-        final tipo = alert['tipo_alerta'].toString();
-        final fecha =
-        DateTime.parse(alert['fecha_alerta'] as String);
-
+        final severidad = (alert['severidad'] as String).toLowerCase();
+        final tipo = alert['tipo_alerta'] as String;
+        final parametro = alert['parametro'] as String;
+        final fechaStr = alert['fecha_alerta'] as String;
+        final fecha = DateTime.parse(fechaStr);
         final weekNumber = ((fecha.day - 1) ~/ 7) + 1;
 
         // Contar severidad
@@ -127,20 +175,18 @@ class StatisticsService {
             break;
         }
 
-        // Contar tipo
         tipoCount[tipo] = (tipoCount[tipo] ?? 0) + 1;
-
-        // Contar por semana
+        paramCount[parametro] = (paramCount[parametro] ?? 0) + 1;
         weekCount[weekNumber] = (weekCount[weekNumber] ?? 0) + 1;
       }
 
-      // Tipo más frecuente
-      String tipoMasFrecuente = 'ninguno';
-      int maxCount = 0;
-      tipoCount.forEach((tipo, count) {
-        if (count > maxCount) {
-          maxCount = count;
-          tipoMasFrecuente = tipo;
+      // Parámetro más afectado
+      String parametroMasAfectado = 'ninguno';
+      int maxParamCount = 0;
+      paramCount.forEach((param, count) {
+        if (count > maxParamCount) {
+          maxParamCount = count;
+          parametroMasAfectado = param;
         }
       });
 
@@ -160,7 +206,7 @@ class StatisticsService {
         'altas': altas,
         'medias': medias,
         'bajas': bajas,
-        'tipo_mas_frecuente': tipoMasFrecuente,
+        'parametro_mas_afectado': parametroMasAfectado,
         'semana_critica': semanaCritica,
       };
     } catch (e) {

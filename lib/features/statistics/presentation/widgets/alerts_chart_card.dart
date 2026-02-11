@@ -1,26 +1,38 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../providers/statistics_provider.dart';
+import 'multi_line_chart.dart';
+import 'chart_legend.dart';
 
+/// Card principal que contiene la gráfica de alertas
 class AlertsChartCard extends StatelessWidget {
-  final Map<String, Map<String, int>> weeklyData;
-  final bool isLoading;
-
-  const AlertsChartCard({
-    super.key,
-    required this.weeklyData,
-    this.isLoading = false,
-  });
-
-  static const Color _criticaColor = Color(0xFFDC2626);
-  static const Color _altaColor = Color(0xFFF59E0B);
-  static const Color _mediaColor = Color(0xFFFBBF24);
-  static const Color _bajaColor = Color(0xFF10B981);
+  const AlertsChartCard({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    return Consumer<StatisticsProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return _buildLoadingCard();
+        }
+
+        if (provider.hasError) {
+          return _buildErrorCard(provider.error!);
+        }
+
+        if (!provider.hasData) {
+          return _buildEmptyCard();
+        }
+
+        return _buildChartCard(provider);
+      },
+    );
+  }
+
+  /// Card con la gráfica completa
+  Widget _buildChartCard(StatisticsProvider provider) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -36,195 +48,213 @@ class AlertsChartCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.show_chart, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                'Alertas por Semana',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+          // Header
+          _buildHeader(provider),
 
-          SizedBox(
-            height: 260,
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : weeklyData.isEmpty
-                ? _buildEmptyState()
-                : _buildChart(),
+          // Gráfica
+          Container(
+            height: 320,
+            padding: const EdgeInsets.all(16),
+            child: MultiLineChart(
+              weeklyData: provider.weeklyData,
+            ),
           ),
+
+          // Leyenda
+          const ChartLegend(),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.insert_chart_outlined,
-              size: 48, color: Colors.grey.shade300),
-          const SizedBox(height: 12),
-          const Text(
-            'No hay datos para este mes',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
+  /// Header del card
+  Widget _buildHeader(StatisticsProvider provider) {
+    final monthName = _getMonthName(provider.selectedMonth);
+    final totalAlertas = provider.summary['total'] as int? ?? 0;
 
-  Widget _buildChart() {
     return Padding(
-      padding: const EdgeInsets.only(left: 8, right: 16, top: 8),
-      child: LineChart(
-        LineChartData(
-          minX: 0,
-          maxX: 3,
-          minY: 0,
-          maxY: _calculateMaxY(),
-
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: _calculateYInterval(),
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: Colors.grey.shade200,
-              strokeWidth: 1,
-            ),
-          ),
-
-          titlesData: FlTitlesData(
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: 1,
-                reservedSize: 28,
-                getTitlesWidget: _bottomTitleWidgets,
-              ),
-            ),
-            leftTitles: AxisTitles(
-              axisNameWidget: const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'N° de alertas',
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tendencias de Alertas',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Distribución por parámetro - $monthName',
                   style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              axisNameSize: 24,
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: _calculateYInterval(),
-                reservedSize: 36,
-                getTitlesWidget: _leftTitleWidgets,
-              ),
+              ],
             ),
           ),
-
-          borderData: FlBorderData(
-            show: true,
-            border: Border(
-              left: BorderSide(color: Colors.grey.shade300),
-              bottom: BorderSide(color: Colors.grey.shade300),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: totalAlertas > 0
+                  ? AppColors.warning.withOpacity(0.1)
+                  : AppColors.success.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  totalAlertas > 0 ? Icons.warning_amber : Icons.check_circle,
+                  size: 12,
+                  color: totalAlertas > 0 ? AppColors.warning : AppColors.success,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$totalAlertas alertas',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: totalAlertas > 0 ? AppColors.warning : AppColors.success,
+                  ),
+                ),
+              ],
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          lineBarsData: [
-            _buildLineChartBarData('critica', _criticaColor),
-            _buildLineChartBarData('alta', _altaColor),
-            _buildLineChartBarData('media', _mediaColor),
-            _buildLineChartBarData('baja', _bajaColor),
+  /// Card de carga
+  Widget _buildLoadingCard() {
+    return Container(
+      height: 500,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: AppColors.primary,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Cargando estadísticas...',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  LineChartBarData _buildLineChartBarData(String severidad, Color color) {
-    return LineChartBarData(
-      spots: _getDataPoints(severidad),
-      isCurved: true,
-      color: color,
-      barWidth: 3,
-      dotData: FlDotData(show: true),
-      belowBarData: BarAreaData(
-        show: true,
-        color: color.withOpacity(0.1),
+  /// Card de error
+  Widget _buildErrorCard(String error) {
+    return Container(
+      height: 500,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-    );
-  }
-
-  List<FlSpot> _getDataPoints(String severidad) {
-    return List.generate(4, (i) {
-      final key = 'semana_${i + 1}';
-      final value = weeklyData[key]?[severidad] ?? 0;
-      return FlSpot(i.toDouble(), value.toDouble());
-    });
-  }
-
-  double _calculateMaxY() {
-    double maxValue = 0;
-    for (final severities in weeklyData.values) {
-      for (final count in severities.values) {
-        if (count > maxValue) maxValue = count.toDouble();
-      }
-    }
-    final maxY = (maxValue * 1.2).ceilToDouble();
-    return maxY < 4 ? 4 : maxY;
-  }
-
-  double _calculateYInterval() {
-    final maxY = _calculateMaxY();
-    if (maxY <= 5) return 1;
-    if (maxY <= 10) return 2;
-    if (maxY <= 20) return 5;
-    return 10;
-  }
-
-  Widget _bottomTitleWidgets(double value, TitleMeta meta) {
-    const labels = ['S1', 'S2', 'S3', 'S4'];
-    if (value.toInt() < 0 || value.toInt() > 3) return const SizedBox();
-    return SideTitleWidget(
-      axisSide: meta.axisSide,
-      child: Text(
-        labels[value.toInt()],
-        style: const TextStyle(
-          fontSize: 12,
-          color: AppColors.textSecondary,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: AppColors.error.withOpacity(0.5),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Error al cargar datos',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                error,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _leftTitleWidgets(double value, TitleMeta meta) {
-    if (value % 1 != 0) return const SizedBox();
-    return SideTitleWidget(
-      axisSide: meta.axisSide,
-      child: Text(
-        value.toInt().toString(),
-        style: const TextStyle(
-          fontSize: 11,
-          color: AppColors.textSecondary,
+  /// Card sin datos
+  Widget _buildEmptyCard() {
+    return Container(
+      height: 500,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 64,
+              color: AppColors.textSecondary.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No hay datos disponibles',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No se encontraron alertas para este período',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  /// Obtener nombre del mes
+  String _getMonthName(int month) {
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    return months[month - 1];
   }
 }
