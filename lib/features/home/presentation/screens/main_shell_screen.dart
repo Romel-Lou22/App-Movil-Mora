@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+
+import '../../../alerts/domain/entities/alert.dart';
+import '../../../alerts/presentation/providers/alert_provider.dart';
 import '../../../alerts/presentation/screens/alerts_screen.dart';
 import '../../../parcelas/presentation/providers/parcela_provider.dart';
 import '../../../parcelas/presentation/screens/parcelas_list_screen.dart';
 import '../../../predictions/presentation/screens/predictions_screen.dart';
-
 import '../../../statistics/presentation/pages/statistics_page.dart';
+import '../widgets/badged_icon.dart';
 import '../widgets/home_drawer.dart';
 import 'home_screen.dart';
 
@@ -21,13 +24,12 @@ class MainShellScreen extends StatefulWidget {
 class _MainShellScreenState extends State<MainShellScreen> {
   int _selectedIndex = 0;
 
-  // Títulos por tab
   final List<String> _titles = const [
     '',
     'Datos Actuales',
     'Alertas',
     'Parcelas',
-    'Gráfico',
+    'Estadisticas',
   ];
 
   late final List<Widget> _pages;
@@ -41,12 +43,28 @@ class _MainShellScreenState extends State<MainShellScreen> {
       const PredictionsScreen(),
       const AlertsScreen(),
       const ParcelasListScreen(),
-      const StatisticsPage(), // ← NUEVO
+      const StatisticsPage(),
     ];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<ParcelaProvider>().fetchParcelas();
+
+      final parcelaProvider = context.read<ParcelaProvider>();
+      final alertProvider = context.read<AlertProvider>();
+
+      debugPrint('📊 [SHELL] Cargando datos iniciales...');
+
+      parcelaProvider.fetchParcelas().then((_) {
+        if (!mounted) return;
+
+        final parcela = parcelaProvider.parcelaSeleccionada;
+        if (parcela != null) {
+          debugPrint('🚨 [SHELL] Cargando alertas para: ${parcela.nombreParcela}');
+          alertProvider.fetchActiveAlerts(parcela.id);
+        } else {
+          debugPrint('⚠️ [SHELL] No hay parcela seleccionada');
+        }
+      });
     });
   }
 
@@ -54,58 +72,47 @@ class _MainShellScreenState extends State<MainShellScreen> {
     setState(() => _selectedIndex = i);
   }
 
-  /// Construye los íconos de acción según el tab activo
   List<Widget> _buildActionIcons(BuildContext context) {
     switch (_selectedIndex) {
-      case 0: // Home
+      case 0:
         return [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            tooltip: 'Ver alertas',
-            onPressed: () => setState(() => _selectedIndex = 2),
+          Consumer<AlertProvider>(
+            builder: (context, alertProvider, _) {
+              return BadgedIcon(
+                icon: Icons.notifications_outlined,
+                count: alertProvider.unreadCount,
+                tooltip: alertProvider.unreadCount > 0
+                    ? '${alertProvider.unreadCount} alerta${alertProvider.unreadCount > 1 ? 's' : ''} activa${alertProvider.unreadCount > 1 ? 's' : ''}'
+                    : 'Ver alertas',
+                onPressed: () => _showAlertsPreviewDialog(context),
+              );
+            },
           ),
         ];
 
-      case 1: // Predicciones
+      case 1:
         return [
           IconButton(
             icon: const Icon(Icons.info_outline, color: Colors.white),
             tooltip: 'Información',
             onPressed: () => _showPredictionsInfoDialog(context),
           ),
-
         ];
 
-      case 2: // Alertas
-        return [
-          IconButton(
-            icon: const Icon(Icons.notifications_active, color: Colors.white),
-            tooltip: 'Estás viendo alertas',
-            onPressed: () {
-              // Ya estás en alertas, podrías mostrar un mensaje o refrescar
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Ya estás en la sección de alertas'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
-          ),
-        ];
-
-      case 3: // Parcelas
+      case 2:
         return [
 
-
         ];
 
-      case 4: // Gráfico
+      case 3:
+        return [];
+
+      case 4:
         return [
           IconButton(
             icon: const Icon(Icons.date_range, color: Colors.white),
             tooltip: 'Filtrar fechas',
             onPressed: () {
-              // TODO: Mostrar selector de fechas para el gráfico
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Filtro de fechas próximamente'),
@@ -114,7 +121,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
               );
             },
           ),
-          
         ];
 
       default:
@@ -146,11 +152,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
         ),
         actions: <Widget>[
           if (_selectedIndex == 0) ...[
-            _buildParcelaActionChip(context), // chip solo en Home
+            _buildParcelaActionChip(context),
             const SizedBox(width: 6),
           ],
           ..._buildActionIcons(context),
-
           const SizedBox(width: 6),
         ],
       ),
@@ -192,7 +197,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.insights_outlined),
             activeIcon: Icon(Icons.insights),
-            label: 'Grafico',
+            label: 'Estadísticas',
           ),
         ],
       ),
@@ -254,7 +259,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
               final parcelas = parcelaProvider.parcelas;
               final selectedId = parcelaProvider.parcelaSeleccionada?.id;
 
-              // ✅ MEJORA: si está en initial, lo tratamos como "cargando"
               if (status == ParcelaStatus.initial || parcelaProvider.isLoading) {
                 return const Padding(
                   padding: EdgeInsets.all(24),
@@ -262,7 +266,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
                 );
               }
 
-              // ✅ MEJORA: si hubo error, muestro error + reintentar
               if (status == ParcelaStatus.error) {
                 return Padding(
                   padding: const EdgeInsets.all(24),
@@ -289,7 +292,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
                 );
               }
 
-              // ✅ MEJORA: estado loaded pero sin parcelas
               if (parcelas.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.all(24),
@@ -314,6 +316,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
                     onTap: () {
                       parcelaProvider.setParcelaSeleccionada(p);
                       Navigator.pop(context);
+
+                      debugPrint('🔄 [SHELL] Recargando alertas para: ${p.nombreParcela}');
+                      context.read<AlertProvider>().fetchActiveAlerts(p.id);
                     },
                   );
                 },
@@ -323,6 +328,329 @@ class _MainShellScreenState extends State<MainShellScreen> {
         );
       },
     );
+  }
+
+  /// Muestra el diálogo de preview de alertas
+  void _showAlertsPreviewDialog(BuildContext context) {
+    final alertProvider = context.read<AlertProvider>();
+    final parcelaProvider = context.read<ParcelaProvider>();
+
+    final parcela = parcelaProvider.parcelaSeleccionada;
+
+    if (parcela == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecciona una parcela primero'),
+          duration: Duration(seconds: 2),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Consumer<AlertProvider>(
+        builder: (context, provider, _) {
+          final alerts = provider.activeAlerts;
+
+          // 🔧 CORRECCIÓN: usar createdAt en lugar de fechaHora
+          final criticalAlerts = alerts
+              .where((a) => a.severidad == AlertSeverity.critica)
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          List<Alert> displayAlerts = [...criticalAlerts];
+          if (displayAlerts.length < 5) {
+            final nonCritical = alerts
+                .where((a) => a.severidad != AlertSeverity.critica)
+                .toList()
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+            displayAlerts.addAll(
+              nonCritical.take(5 - displayAlerts.length),
+            );
+          }
+
+          displayAlerts = displayAlerts.take(5).toList();
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.notifications_active, color: AppColors.error, size: 28),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Alertas Activas',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (alerts.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${alerts.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: provider.isLoading
+                  ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+                  : alerts.isEmpty
+                  ? const Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: 64,
+                      color: AppColors.success,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      '¡Todo en orden!',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'No tienes alertas activas en este momento.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Todos los parámetros están en rangos normales.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+                  : SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (displayAlerts.length < alerts.length)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: AppColors.secondary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Mostrando ${displayAlerts.length} de ${alerts.length} alertas (priorizando críticas)',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ...displayAlerts.map(
+                          (alert) => _buildAlertPreviewItem(alert),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cerrar'),
+              ),
+              if (alerts.isNotEmpty)
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    setState(() => _selectedIndex = 2);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.secondary,
+                  ),
+                  child: const Text('Ver Todas'),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// Widget para cada item de alerta en el preview
+  Widget _buildAlertPreviewItem(Alert alert) {
+    Color severityColor;
+    IconData severityIcon;
+    String severityText;
+
+    // 🔧 CORRECCIÓN: Manejar severidad nullable
+    switch (alert.severidad) {
+      case AlertSeverity.critica:
+        severityColor = AppColors.error;
+        severityIcon = Icons.error;
+        severityText = 'CRÍTICA';
+        break;
+      case AlertSeverity.alta:
+        severityColor = Colors.orange;
+        severityIcon = Icons.warning;
+        severityText = 'ALTA';
+        break;
+      case AlertSeverity.media:
+        severityColor = Colors.yellow.shade700;
+        severityIcon = Icons.info;
+        severityText = 'MEDIA';
+        break;
+      case AlertSeverity.baja:
+        severityColor = Colors.blue;
+        severityIcon = Icons.info_outline;
+        severityText = 'BAJA';
+        break;
+      case null:
+        severityColor = Colors.grey;
+        severityIcon = Icons.help_outline;
+        severityText = 'DESCONOCIDA';
+        break;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: severityColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: severityColor.withOpacity(0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: severityColor.withOpacity(0.15),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(severityIcon, color: severityColor, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _getAlertTypeName(alert.tipoAlerta), // 🔧 CORRECCIÓN: usar helper
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: severityColor,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: severityColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    severityText,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              alert.mensaje,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 🔧 NUEVO: Helper para obtener nombre legible del tipo de alerta
+  String _getAlertTypeName(AlertType tipo) {
+    switch (tipo) {
+      case AlertType.phBajo:
+        return 'pH Muy Ácido';
+      case AlertType.phAlto:
+        return 'pH Muy Alcalino';
+      case AlertType.tempBaja:
+        return 'Riesgo de Helada';
+      case AlertType.tempAlta:
+        return 'Calor Excesivo';
+      case AlertType.humBaja:
+        return 'Riesgo de Sequía';
+      case AlertType.humAlta:
+        return 'Exceso de Humedad';
+      case AlertType.nBajo:
+        return 'Nitrógeno Bajo';
+      case AlertType.nAlto:
+        return 'Nitrógeno Alto';
+      case AlertType.pBajo:
+        return 'Fósforo Bajo';
+      case AlertType.pAlto:
+        return 'Fósforo Alto';
+      case AlertType.kBajo:
+        return 'Potasio Bajo';
+      case AlertType.kAlto:
+        return 'Potasio Alto';
+    }
   }
 
   /// Muestra el diálogo de información de predicciones
@@ -377,7 +705,4 @@ class _MainShellScreenState extends State<MainShellScreen> {
       ),
     );
   }
-
-
-
 }

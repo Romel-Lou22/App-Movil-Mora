@@ -76,6 +76,8 @@ class AlertProvider extends ChangeNotifier {
   // ====== EVALUACIÓN (HF + persist) ======
   /// Genera y persiste alertas en base a features
   /// Genera y persiste alertas en base a features
+  // ====== EVALUACIÓN (HF + persist) ======
+  /// Genera y persiste alertas en base a features
   Future<void> evaluateThresholds({
     required String parcelaId,
     required Map<String, double> features,
@@ -132,16 +134,25 @@ class AlertProvider extends ChangeNotifier {
         _lastEvaluationAlerts = alerts;
         _isEvaluating = false;
 
-        // Si hubo nuevas alertas, refresca activas (no leídas) y opcionalmente historial
+        // ✅ CAMBIO CRÍTICO: Si hubo nuevas alertas, agregarlas al inicio de la lista
+        // NO recargar desde el servidor
         if (alerts.isNotEmpty) {
-          print('💾 Guardando alertas en Supabase (alertas_historial)...');
-          await fetchActiveAlerts(parcelaId);
-          print('✅ Alertas guardadas y lista actualizada');
+          print('💾 Alertas guardadas en Supabase (alertas_historial)...');
+
+          // ✅ Insertar las nuevas alertas al inicio (más recientes primero)
+          _activeAlerts.insertAll(0, alerts);
+          _unreadCount = _activeAlerts.length;
+
+          _status = AlertStatus.success;
+          _errorMessage = '';
+
+          print('✅ ${alerts.length} alertas nuevas agregadas a la lista (total: ${_activeAlerts.length})');
         } else {
           _status = AlertStatus.success;
           _errorMessage = '';
-          notifyListeners();
         }
+
+        notifyListeners();
 
         print('🚨 ═══════════════════════════════════');
         print('🚨 EVALUACIÓN COMPLETADA');
@@ -149,7 +160,6 @@ class AlertProvider extends ChangeNotifier {
       },
     );
   }
-
 
 
 
@@ -308,9 +318,14 @@ class AlertProvider extends ChangeNotifier {
         notifyListeners();
       },
           (_) async {
-        // ✅ Como “activas” son no leídas, al marcar como leída se remueve de activas
+        // ✅ CAMBIO: Remover de la lista local INMEDIATAMENTE
         _activeAlerts.removeWhere((a) => a.id == alertId);
+        _unreadCount = _activeAlerts.length; // Actualizar contador inmediatamente
 
+        // Notificar PRIMERO para actualizar UI
+        notifyListeners();
+
+        // Luego actualizar desde servidor (en background)
         await _updateUnreadCount(parcelaId);
         notifyListeners();
       },

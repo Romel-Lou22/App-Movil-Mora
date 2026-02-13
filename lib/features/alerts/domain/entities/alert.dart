@@ -2,11 +2,8 @@
 import 'package:equatable/equatable.dart';
 
 /// Valores internos de la app (los que ya usas en tu UI/ML).
-/// IMPORTANTE:
-/// - dbValue = “interno” (compat con tu app/ML: ph_bajo, temp_alta, etc.)
-/// - dbEnumValue = valor REAL que tu BD acepta (ENUM tipo_alerta).
 enum AlertType {
-  // Valores internos (app/ML)
+  // ... (todo tu código actual se mantiene igual)
   phBajo('ph_bajo'),
   phAlto('ph_alto'),
   humBaja('hum_baja'),
@@ -23,39 +20,26 @@ enum AlertType {
   final String dbValue;
   const AlertType(this.dbValue);
 
-  /// Valor REAL para insertar/filtrar contra el ENUM de tu BD (tipo_alerta).
-  /// Debe coincidir con lo que creaste en SQL:
-  /// helada, calor_excesivo, sequia, exceso_humedad, nitrogeno_bajo, fosforo_bajo,
-  /// potasio_bajo, ph_muy_acido, ph_muy_alcalino, ...
-  ///
-  /// NOTA:
-  /// Si tu BD NO tiene nitrogeno_alto/fosforo_alto/potasio_alto,
-  /// entonces NO podrás insertar esos tipos sin actualizar tu ENUM en BD.
   String get dbEnumValue {
     switch (this) {
       case AlertType.phBajo:
         return 'ph_muy_acido';
       case AlertType.phAlto:
         return 'ph_muy_alcalino';
-
       case AlertType.tempBaja:
         return 'helada';
       case AlertType.tempAlta:
         return 'calor_excesivo';
-
       case AlertType.humBaja:
         return 'sequia';
       case AlertType.humAlta:
         return 'exceso_humedad';
-
       case AlertType.nBajo:
         return 'nitrogeno_bajo';
       case AlertType.pBajo:
         return 'fosforo_bajo';
       case AlertType.kBajo:
         return 'potasio_bajo';
-
-    // Si tu BD NO tiene estos enums, cambiar BD o manejar de otra forma.
       case AlertType.nAlto:
         return 'nitrogeno_alto';
       case AlertType.pAlto:
@@ -65,53 +49,38 @@ enum AlertType {
     }
   }
 
-  /// ✅ Acepta:
-  /// - valores internos/ML (ph_bajo, hum_alta, etc.)
-  /// - valores reales de BD (ph_muy_acido, helada, sequia, etc.)
   static AlertType? tryParse(String value) {
     final v = value.trim().toLowerCase();
 
-    // 1) Match directo por valores internos (dbValue)
     for (final t in AlertType.values) {
       if (t.dbValue == v) return t;
     }
 
-    // 2) Mapear desde ENUM real de BD -> valores internos
     switch (v) {
-    // pH
       case 'ph_muy_acido':
         return AlertType.phBajo;
       case 'ph_muy_alcalino':
         return AlertType.phAlto;
-
-    // Temperatura
       case 'helada':
         return AlertType.tempBaja;
       case 'calor_excesivo':
         return AlertType.tempAlta;
-
-    // Humedad
       case 'sequia':
         return AlertType.humBaja;
       case 'exceso_humedad':
         return AlertType.humAlta;
-
-    // Nutrientes (BD)
       case 'nitrogeno_bajo':
         return AlertType.nBajo;
       case 'fosforo_bajo':
         return AlertType.pBajo;
       case 'potasio_bajo':
         return AlertType.kBajo;
-
-    // Si tu BD también tiene altos:
       case 'nitrogeno_alto':
         return AlertType.nAlto;
       case 'fosforo_alto':
         return AlertType.pAlto;
       case 'potasio_alto':
         return AlertType.kAlto;
-
       default:
         return null;
     }
@@ -123,7 +92,6 @@ enum AlertType {
   }
 }
 
-/// Severidad alineada a BD (baja, media, alta, critica)
 enum AlertSeverity {
   baja('baja'),
   media('media'),
@@ -181,8 +149,65 @@ class Alert extends Equatable {
     required this.createdAt,
   });
 
-  bool get isActive => !vista;
+  // ✅ Nueva lógica: isActive considera TANTO vista como expiración
+  bool get isActive {
+    // Si ya fue vista, no está activa
+    if (vista) return false;
+
+    // Si no está vista, verificar si expiró por tiempo
+    return !isExpired;
+  }
+
+  // ✅ Nueva propiedad: verifica si la alerta expiró por tiempo
+  bool get isExpired {
+    final now = DateTime.now();
+    final age = now.difference(createdAt);
+
+    // Duración según severidad
+    switch (severidad) {
+      case AlertSeverity.critica:
+        return age.inHours >= 24; // Expira en 24 horas
+      case AlertSeverity.alta:
+        return age.inHours >= 48; // Expira en 48 horas (2 días)
+      case AlertSeverity.media:
+        return age.inDays >= 7; // Expira en 7 días
+      case AlertSeverity.baja:
+        return age.inDays >= 14; // Expira en 14 días
+      case null:
+        return age.inDays >= 7; // Default: 7 días
+    }
+  }
+
   bool get isRead => vista;
+
+  // ✅ Propiedad útil: tiempo restante antes de expirar
+  Duration? get timeUntilExpiration {
+    if (vista) return null;
+
+    final now = DateTime.now();
+    final age = now.difference(createdAt);
+
+    Duration maxAge;
+    switch (severidad) {
+      case AlertSeverity.critica:
+        maxAge = const Duration(hours: 24);
+        break;
+      case AlertSeverity.alta:
+        maxAge = const Duration(hours: 48);
+        break;
+      case AlertSeverity.media:
+        maxAge = const Duration(days: 7);
+        break;
+      case AlertSeverity.baja:
+        maxAge = const Duration(days: 14);
+        break;
+      case null:
+        maxAge = const Duration(days: 7);
+    }
+
+    final remaining = maxAge - age;
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
 
   static const Object _sentinel = Object();
 
@@ -237,7 +262,6 @@ class Alert extends Equatable {
 
   @override
   String toString() {
-    // Si quieres ver el valor real que se guarda en BD:
-    return 'Alert(id: $id, tipo: ${tipoAlerta.dbEnumValue}, parametro: $parametro, valor: $valorDetectado, vista: $vista)';
+    return 'Alert(id: $id, tipo: ${tipoAlerta.dbEnumValue}, parametro: $parametro, valor: $valorDetectado, vista: $vista, expirada: $isExpired)';
   }
 }

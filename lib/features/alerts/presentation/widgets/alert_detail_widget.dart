@@ -66,7 +66,7 @@ class AlertDetailWidget extends StatelessWidget {
                     _buildRecommendation(),
                     const SizedBox(height: 24),
                   ],
-                  _buildTechnicalDetails(),
+                  //_buildTechnicalDetails(),
                   const SizedBox(height: 32),
                   _buildActionButtons(context),
                   const SizedBox(height: 16),

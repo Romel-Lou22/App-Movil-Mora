@@ -14,8 +14,6 @@ class AlertRepositoryImpl implements AlertRepository {
   @override
   Future<Either<String, Alert>> createAlert(Alert alert) async {
     try {
-      // Si ya NO vas a crear manuales, puedes eliminar este método del repo
-      // o dejarlo por compatibilidad.
       final model = AlertModel.fromEntity(alert);
       final created = await remoteDataSource.insertAlerts([model]);
       if (created.isEmpty) {
@@ -37,6 +35,10 @@ class AlertRepositoryImpl implements AlertRepository {
     int limit = 50,
   }) async {
     try {
+      debugPrint('📦 REPOSITORY - Llamando a datasource con:');
+      debugPrint('   onlyUnread: ${onlyUnread ?? false}');
+      debugPrint('   limit: $limit');
+
       final models = await remoteDataSource.fetchAlerts(
         parcelaId: parcelaId,
         onlyUnread: onlyUnread ?? false,
@@ -48,6 +50,24 @@ class AlertRepositoryImpl implements AlertRepository {
 
       // Convertir modelo -> entidad (AlertModel extiende Alert)
       final alerts = models.cast<Alert>().toList();
+
+      debugPrint('📦 REPOSITORY - Alertas recibidas del datasource: ${alerts.length}');
+
+      // ✅ FILTRO ADICIONAL DE SEGURIDAD: Por si acaso el datasource falla
+      if (onlyUnread == true) {
+        final filtered = alerts.where((alert) => !alert.vista).toList();
+        debugPrint('📦 REPOSITORY - Después de filtrar no vistas: ${filtered.length}');
+
+        if (filtered.length != alerts.length) {
+          debugPrint('⚠️ ADVERTENCIA: El datasource devolvió alertas vistas cuando no debía');
+          debugPrint('   Total recibido: ${alerts.length}');
+          debugPrint('   No vistas: ${filtered.length}');
+          debugPrint('   Vistas (incorrectas): ${alerts.length - filtered.length}');
+        }
+
+        return Right(filtered);
+      }
+
       return Right(alerts);
     } catch (e) {
       return Left(_handleError(e));
@@ -57,7 +77,9 @@ class AlertRepositoryImpl implements AlertRepository {
   @override
   Future<Either<String, Unit>> markAlertAsRead(String alertId) async {
     try {
+      debugPrint('📝 REPOSITORY - Marcando alerta como vista: $alertId');
       await remoteDataSource.markAlertAsRead(alertId);
+      debugPrint('✅ REPOSITORY - Alerta marcada exitosamente');
       return const Right(unit);
     } catch (e) {
       return Left(_handleError(e));

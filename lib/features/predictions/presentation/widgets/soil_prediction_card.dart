@@ -69,7 +69,7 @@ class SoilPredictionCard extends StatelessWidget {
               isLow: soilPrediction.phIsLow,
               isHigh: soilPrediction.phIsHigh,
               optimalRange: '${SoilPrediction.phMin} - ${SoilPrediction.phMax}',
-              recommendation: soilPrediction.phRecommendation,
+              recommendation: '',
             ),
 
             const Divider(height: 24),
@@ -84,7 +84,7 @@ class SoilPredictionCard extends StatelessWidget {
               isLow: soilPrediction.nitrogenoIsLow,
               isHigh: soilPrediction.nitrogenoIsHigh,
               optimalRange: '${SoilPrediction.nitrogenoMin.toInt()} - ${SoilPrediction.nitrogenoMax.toInt()} ppm',
-              recommendation: soilPrediction.nitrogenoRecommendation,
+              recommendation: '',
             ),
 
             const Divider(height: 24),
@@ -99,7 +99,7 @@ class SoilPredictionCard extends StatelessWidget {
               isLow: soilPrediction.fosforoIsLow,
               isHigh: soilPrediction.fosforoIsHigh,
               optimalRange: '${SoilPrediction.fosforoMin.toInt()} - ${SoilPrediction.fosforoMax.toInt()} ppm',
-              recommendation: soilPrediction.fosforoRecommendation,
+              recommendation: '',
             ),
 
             const Divider(height: 24),
@@ -114,7 +114,7 @@ class SoilPredictionCard extends StatelessWidget {
               isLow: soilPrediction.potasioIsLow,
               isHigh: soilPrediction.potasioIsHigh,
               optimalRange: '${SoilPrediction.potasioMin.toInt()} - ${SoilPrediction.potasioMax.toInt()} ppm',
-              recommendation: soilPrediction.potasioRecommendation,
+              recommendation: '',
             ),
 
             const SizedBox(height: 16),
@@ -130,7 +130,7 @@ class SoilPredictionCard extends StatelessWidget {
               isHigh: soil.humedadIsHigh,
               optimalRange:
               '${SoilPrediction.humedadMin.toInt()} - ${SoilPrediction.humedadMax.toInt()} %',
-              recommendation: soil.humedadRecommendation,
+              recommendation: '',
             ),
 
 

@@ -27,7 +27,6 @@ class AlertModel extends Alert {
       id: json['id'] as String,
       parcelaId: json['parcela_id'] as String,
 
-      // ✅ Ahora soporta ENUM real: ph_muy_acido, helada, etc.
       tipoAlerta: AlertType.fromDb(json['tipo_alerta'] as String),
       severidad: sevStr == null ? null : AlertSeverity.tryParse(sevStr),
 
@@ -38,11 +37,12 @@ class AlertModel extends Alert {
       recomendacion: json['recomendacion'] as String?,
       vista: json['vista'] as bool? ?? false,
 
+      // ✅ FIX: Convertir de UTC a hora local
       fechaAlerta: fechaAlertaRaw != null
-          ? DateTime.parse(fechaAlertaRaw)
+          ? DateTime.parse(fechaAlertaRaw).toLocal()
           : DateTime.now(),
       createdAt: createdAtRaw != null
-          ? DateTime.parse(createdAtRaw)
+          ? DateTime.parse(createdAtRaw).toLocal()
           : DateTime.now(),
     );
   }
@@ -51,10 +51,7 @@ class AlertModel extends Alert {
     return {
       'id': id,
       'parcela_id': parcelaId,
-
-      // ✅ IMPORTANTE: guardar el valor del ENUM real de BD
       'tipo_alerta': tipoAlerta.dbEnumValue,
-
       'severidad': severidad?.dbValue,
       'parametro': parametro,
       'valor_detectado': valorDetectado,
@@ -62,8 +59,9 @@ class AlertModel extends Alert {
       'mensaje': mensaje,
       'recomendacion': recomendacion,
       'vista': vista,
-      'fecha_alerta': fechaAlerta.toIso8601String(),
-      'created_at': createdAt.toIso8601String(),
+      // ✅ FIX: Convertir a UTC antes de guardar
+      'fecha_alerta': fechaAlerta.toUtc().toIso8601String(),
+      'created_at': createdAt.toUtc().toIso8601String(),
     };
   }
 
@@ -71,10 +69,7 @@ class AlertModel extends Alert {
   Map<String, dynamic> toJsonForInsert() {
     return {
       'parcela_id': parcelaId,
-
-      // ✅ IMPORTANTE: guardar el valor del ENUM real de BD
       'tipo_alerta': tipoAlerta.dbEnumValue,
-
       'severidad': severidad?.dbValue,
       'parametro': parametro,
       'valor_detectado': valorDetectado,
@@ -82,23 +77,25 @@ class AlertModel extends Alert {
       'mensaje': mensaje,
       'recomendacion': recomendacion,
       'vista': vista,
-      'fecha_alerta': fechaAlerta.toIso8601String(),
+      // ✅ FIX: Convertir a UTC antes de guardar
+      'fecha_alerta': fechaAlerta.toUtc().toIso8601String(),
     };
   }
 
   /// Desde respuesta del Random Forest (API HF)
   factory AlertModel.fromRandomForestResponse({
     required String parcelaId,
-    required String tipo, // viene como string del API
+    required String tipo,
     required String? recomendacion,
     required Map<String, double> valoresInput,
   }) {
-    // ✅ Puede venir como ph_bajo (interno) o helada (BD), ambos soportados
     final alertType = AlertType.fromDb(tipo);
-
     final parametroInfo = _getParametroInfo(alertType, valoresInput);
     final mensaje = _generateMensaje(alertType, (parametroInfo['valor'] as double));
     final sev = _mapSeveridad(alertType);
+
+    // ✅ Usar DateTime.now() que ya está en hora local
+    final now = DateTime.now();
 
     return AlertModel(
       id: '',
@@ -111,8 +108,8 @@ class AlertModel extends Alert {
       mensaje: mensaje,
       recomendacion: recomendacion,
       vista: false,
-      fechaAlerta: DateTime.now(),
-      createdAt: DateTime.now(),
+      fechaAlerta: now,
+      createdAt: now,
     );
   }
 

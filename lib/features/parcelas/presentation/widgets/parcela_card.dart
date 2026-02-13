@@ -187,23 +187,6 @@ class ParcelaCard extends StatelessWidget {
   Widget _buildActions() {
     return Row(
       children: [
-        // Botón "VER DATOS"
-        if (onViewData != null)
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: onViewData,
-              icon: const Icon(Icons.bar_chart, size: 18),
-              label: const Text('VER DATOS'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
 
         if (onViewData != null && onEdit != null) const SizedBox(width: 12),
 
