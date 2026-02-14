@@ -46,7 +46,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       const StatisticsPage(),
     ];
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+   /* WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
       final parcelaProvider = context.read<ParcelaProvider>();
@@ -65,7 +65,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
           debugPrint('⚠️ [SHELL] No hay parcela seleccionada');
         }
       });
-    });
+    });*/
   }
 
   void _onTabRequested(int i) {

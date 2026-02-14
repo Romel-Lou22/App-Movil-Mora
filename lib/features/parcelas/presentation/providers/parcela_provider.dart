@@ -63,38 +63,47 @@ class ParcelaProvider extends ChangeNotifier {
   // === Métodos Principales ===
 
   /// Obtiene todas las parcelas activas del usuario
+  /// Obtiene todas las parcelas activas del usuario
   Future<void> fetchParcelas() async {
     _setStatus(ParcelaStatus.loading);
     _errorMessage = null;
 
-    // Ejecutar el caso de uso
     final result = await getParcelasUseCase();
 
-    // Manejar el resultado
     result.fold(
-      // Error (Left)
           (failure) {
         _setStatus(ParcelaStatus.error);
         _errorMessage = failure.message;
         _parcelas = [];
       },
-      // Éxito (Right)
           (parcelas) {
         _setStatus(ParcelaStatus.loaded);
         _parcelas = parcelas;
         _errorMessage = null;
 
-        // Si hay parcelas y no hay una seleccionada, seleccionar la primera
-        if (_parcelas.isNotEmpty && _parcelaSeleccionada == null) {
-          _parcelaSeleccionada = _parcelas.first;
+        // ✅ ORDEN DETERMINISTA: más antigua primero (primera creada = principal)
+        _parcelas.sort((a, b) {
+          final aTime = a.createdAt ?? DateTime(2000);
+          final bTime = b.createdAt ?? DateTime(2000);
+          return aTime.compareTo(bTime);
+        });
+
+        final selectedId = _parcelaSeleccionada?.id;
+
+        // ✅ MANTENER SELECCIÓN SI AÚN EXISTE
+        if (selectedId != null) {
+          final stillExists = _parcelas.any((p) => p.id == selectedId);
+          if (stillExists) {
+            _parcelaSeleccionada = _parcelas.firstWhere((p) => p.id == selectedId);
+            debugPrint('🌾 Manteniendo parcela seleccionada: ${_parcelaSeleccionada!.nombreParcela}');
+            return; // ← CRÍTICO: No cambiar
+          }
         }
 
-        // Si la parcela seleccionada ya no existe en la lista, actualizar
-        if (_parcelaSeleccionada != null) {
-          final existe = _parcelas.any((p) => p.id == _parcelaSeleccionada!.id);
-          if (!existe) {
-            _parcelaSeleccionada = _parcelas.isNotEmpty ? _parcelas.first : null;
-          }
+        // ✅ SOLO SI NO HAY SELECCIÓN, ELEGIR DEFAULT (más antigua)
+        if (_parcelas.isNotEmpty) {
+          _parcelaSeleccionada = _parcelas.first;
+          debugPrint('🌾 Seleccionando parcela por defecto: ${_parcelaSeleccionada!.nombreParcela}');
         }
       },
     );
@@ -245,8 +254,11 @@ class ParcelaProvider extends ChangeNotifier {
 
   /// Establece la parcela seleccionada (la que se muestra en el HomeScreen)
   void setParcelaSeleccionada(Parcela parcela) {
+
     if (_parcelaSeleccionada?.id != parcela.id) {
       _parcelaSeleccionada = parcela;
+      debugPrint('🌾 setParcelaSeleccionada -> ${parcela.nombreParcela} | ${parcela.id}');
+      debugPrint(StackTrace.current.toString()); // <- te dice QUIÉN lo llamó
       notifyListeners();
 
       debugPrint('🌾 Parcela seleccionada: ${parcela.nombreParcela}');

@@ -12,9 +12,11 @@ extension _AlertsScreenActions on _AlertsScreenState {
       }
 
       _parcelaId = await _obtenerParcelaActiva(user.id);
+      _lastParcelaId = _parcelaId; // ✅ AGREGAR ESTA LÍNEA
 
       if (_parcelaId != null) {
         await _loadInitialData();
+        _loadCurrentTabData(); // ✅ AGREGAR ESTA LÍNEA (carga historial si estás en ese tab)
       }
     } catch (_) {
       if (mounted) setState(() => _parcelaId = null);
@@ -149,6 +151,24 @@ extension _AlertsScreenActions on _AlertsScreenState {
       await provider.refreshActiveAlerts(parcelaId);
     } else {
       await provider.refreshHistory(parcelaId);
+    }
+  }
+
+  // ✅ AGREGAR TODO ESTE MÉTODO AL FINAL DEL EXTENSION
+  void _loadCurrentTabData() {
+    final parcelaId = _parcelaId;
+    if (parcelaId == null) return;
+
+    final provider = context.read<AlertProvider>();
+
+    debugPrint('📊 Cargando datos del tab: ${_tabController.index}');
+
+    if (_tabController.index == 0) {
+      // Tab Activas
+      provider.fetchActiveAlerts(parcelaId);
+    } else if (_tabController.index == 1) {
+      // Tab Historial
+      provider.fetchAlertsHistory(parcelaId: parcelaId);
     }
   }
 }

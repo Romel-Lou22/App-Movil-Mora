@@ -18,13 +18,16 @@ class AlertProvider extends ChangeNotifier {
   final GetActiveAlertsUseCase getActiveAlertsUseCase;
   final GetAlertsHistoryUseCase getAlertsHistoryUseCase;
   final MarkAlertAsReadUseCase markAlertAsReadUseCase;
+  String? _currentParcelaId;
 
   AlertProvider({
     required this.evaluateThresholdsUseCase,
     required this.getActiveAlertsUseCase,
     required this.getAlertsHistoryUseCase,
     required this.markAlertAsReadUseCase,
-  });
+  }){
+    debugPrint('🆕 AlertProvider CREATED | instance=${identityHashCode(this)}');
+  }
 
   // Estado general
   AlertStatus _status = AlertStatus.initial;
@@ -78,6 +81,7 @@ class AlertProvider extends ChangeNotifier {
   /// Genera y persiste alertas en base a features
   // ====== EVALUACIÓN (HF + persist) ======
   /// Genera y persiste alertas en base a features
+// ====== EVALUACIÓN (HF + persist) ======
   Future<void> evaluateThresholds({
     required String parcelaId,
     required Map<String, double> features,
@@ -134,19 +138,20 @@ class AlertProvider extends ChangeNotifier {
         _lastEvaluationAlerts = alerts;
         _isEvaluating = false;
 
-        // ✅ CAMBIO CRÍTICO: Si hubo nuevas alertas, agregarlas al inicio de la lista
-        // NO recargar desde el servidor
         if (alerts.isNotEmpty) {
           print('💾 Alertas guardadas en Supabase (alertas_historial)...');
 
-          // ✅ Insertar las nuevas alertas al inicio (más recientes primero)
-          _activeAlerts.insertAll(0, alerts);
-          _unreadCount = _activeAlerts.length;
+          // ✅ NUEVO: Solo agregar si es la parcela actual
+          if (_currentParcelaId == parcelaId) {
+            _activeAlerts.insertAll(0, alerts);
+            _unreadCount = _activeAlerts.length;
+            print('✅ ${alerts.length} alertas agregadas (total: ${_activeAlerts.length})');
+          } else {
+            print('⚠️ No se agregaron alertas: parcela cambió de $parcelaId a $_currentParcelaId');
+          }
 
           _status = AlertStatus.success;
           _errorMessage = '';
-
-          print('✅ ${alerts.length} alertas nuevas agregadas a la lista (total: ${_activeAlerts.length})');
         } else {
           _status = AlertStatus.success;
           _errorMessage = '';
@@ -165,16 +170,24 @@ class AlertProvider extends ChangeNotifier {
 
   // ====== ACTIVAS ======
   Future<void> fetchActiveAlerts(String parcelaId) async {
+    _currentParcelaId = parcelaId; // ✅ NUEVO
+
     _status = AlertStatus.loading;
     notifyListeners();
 
     final result = await getActiveAlertsUseCase(parcelaId);
 
+    // ✅ NUEVO: Ignorar si la parcela cambió
+    if (_currentParcelaId != parcelaId) {
+      debugPrint('⚠️ Ignorando respuesta de $parcelaId, parcela actual: $_currentParcelaId');
+      return;
+    }
+
     result.fold(
           (error) {
         _status = AlertStatus.error;
         _errorMessage = error;
-        _activeAlerts = [];
+        // ✅ NO limpiar _activeAlerts aquí
         notifyListeners();
       },
           (alerts) async {
@@ -466,6 +479,9 @@ class AlertProvider extends ChangeNotifier {
   }
 
   void clear() {
+    debugPrint('🧹 AlertProvider.clear() called | instance=${identityHashCode(this)}');
+    debugPrint(StackTrace.current.toString());
+
     _status = AlertStatus.initial;
     _errorMessage = '';
     _activeAlerts = [];
@@ -480,6 +496,7 @@ class AlertProvider extends ChangeNotifier {
     _endDate = null;
     notifyListeners();
   }
+
 
   /// Estadísticas por tipo para UI (keys string)
   Map<String, int> getAlertStatistics() {
