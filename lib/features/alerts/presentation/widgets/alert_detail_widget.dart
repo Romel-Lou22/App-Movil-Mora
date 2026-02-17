@@ -235,7 +235,7 @@ class AlertDetailWidget extends StatelessWidget {
               Text(
                 'Rango Óptimo',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   color: Colors.grey[600],
                   fontWeight: FontWeight.w500,
                 ),
@@ -243,7 +243,7 @@ class AlertDetailWidget extends StatelessWidget {
               Text(
                 alert.umbral,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: Colors.grey[800],
                 ),
