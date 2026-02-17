@@ -154,7 +154,7 @@ class AlertModel extends Alert {
         return {
           'parametro': 'Nitrógeno (N)',
           'valor': v('N_ppm'),
-          'umbral': 'Bajo ≤ 18 | Normal 19–54 | Alto ≥ 55 ppm', // ✅ actualizado
+          'umbral': 'Min: 19 | Max: 54 ppm', // ✅ actualizado
         };
 
       case AlertType.pBajo:
@@ -162,7 +162,7 @@ class AlertModel extends Alert {
         return {
           'parametro': 'Fósforo (P)',
           'valor': v('P_ppm'),
-          'umbral': 'Bajo ≤ 15 | Normal 16–59 | Alto ≥ 60 ppm', // ✅ actualizado
+          'umbral': 'Min: 16 | Max: 59 ppm', // ✅ actualizado
         };
 
       case AlertType.kBajo:
@@ -170,7 +170,7 @@ class AlertModel extends Alert {
         return {
           'parametro': 'Potasio (K)',
           'valor': v('K_ppm'),
-          'umbral': 'Bajo ≤ 97 | Normal 98–204 | Alto ≥ 205 ppm', // ✅ actualizado
+          'umbral': 'Min: 98 | Max: 204 ppm', // ✅ actualizado
         };
     }
   }
