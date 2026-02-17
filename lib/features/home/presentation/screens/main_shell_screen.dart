@@ -109,18 +109,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
       case 4:
         return [
-          IconButton(
-            icon: const Icon(Icons.date_range, color: Colors.white),
-            tooltip: 'Filtrar fechas',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Filtro de fechas próximamente'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-          ),
+
         ];
 
       default:

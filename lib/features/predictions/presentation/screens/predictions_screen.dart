@@ -302,7 +302,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
           ),
           SizedBox(height: 24),
           Text(
-            'Obteniendo predicciones...',
+            'Obteniendo datos...',
             style: TextStyle(
               fontSize: 16,
               color: Color(0xFF666666),
@@ -310,7 +310,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
           ),
           SizedBox(height: 8),
           Text(
-            'Consultando OpenWeather y modelo de IA',
+            'Consultando API de clima , esto puede tardar unos segundos',
             style: TextStyle(
               fontSize: 12,
               color: Color(0xFF999999),
@@ -388,7 +388,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Predicciones Agrícolas',
+              'Datos variables Agrícolas',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -409,7 +409,7 @@ class _PredictionsScreenState extends State<PredictionsScreen> {
             ElevatedButton.icon(
               onPressed: () => _fetchPredictions(parcelaId),
               icon: const Icon(Icons.play_arrow),
-              label: const Text('Obtener Predicciones'),
+              label: const Text('Obtener Datos'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6B7C3B),
                 foregroundColor: Colors.white,

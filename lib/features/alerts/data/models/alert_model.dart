@@ -130,7 +130,7 @@ class AlertModel extends Alert {
         return {
           'parametro': 'pH',
           'valor': ph,
-          'umbral': '5.5 - 6.5',
+          'umbral': '5.5 - 6.5',  // pendiente afinar con curls
         };
 
       case AlertType.humBaja:
@@ -138,7 +138,7 @@ class AlertModel extends Alert {
         return {
           'parametro': 'Humedad del Suelo',
           'valor': humSuelo,
-          'umbral': '60 - 80%',
+          'umbral': '60 - 80%',   // pendiente afinar con curls
         };
 
       case AlertType.tempBaja:
@@ -146,7 +146,7 @@ class AlertModel extends Alert {
         return {
           'parametro': 'Temperatura',
           'valor': v('temperatura_C'),
-          'umbral': '10 - 25°C',
+          'umbral': '10 - 25°C',  // pendiente afinar con curls
         };
 
       case AlertType.nBajo:
@@ -154,7 +154,7 @@ class AlertModel extends Alert {
         return {
           'parametro': 'Nitrógeno (N)',
           'valor': v('N_ppm'),
-          'umbral': '40 - 60 ppm',
+          'umbral': 'Bajo ≤ 18 | Normal 19–54 | Alto ≥ 55 ppm', // ✅ actualizado
         };
 
       case AlertType.pBajo:
@@ -162,7 +162,7 @@ class AlertModel extends Alert {
         return {
           'parametro': 'Fósforo (P)',
           'valor': v('P_ppm'),
-          'umbral': '40 - 60 ppm',
+          'umbral': 'Bajo ≤ 15 | Normal 16–59 | Alto ≥ 60 ppm', // ✅ actualizado
         };
 
       case AlertType.kBajo:
@@ -170,11 +170,10 @@ class AlertModel extends Alert {
         return {
           'parametro': 'Potasio (K)',
           'valor': v('K_ppm'),
-          'umbral': '200 - 300 ppm',
+          'umbral': 'Bajo ≤ 97 | Normal 98–204 | Alto ≥ 205 ppm', // ✅ actualizado
         };
     }
   }
-
   static String _generateMensaje(AlertType tipo, double valor) {
     final v = valor.toStringAsFixed(1);
 

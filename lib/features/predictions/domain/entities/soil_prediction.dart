@@ -33,17 +33,13 @@ class SoilPrediction extends Equatable {
   static const double phMin = 5.5;
   static const double phMax = 6.5;
 
-  /// Rango óptimo de Nitrógeno (N): 40 - 60 ppm
-  static const double nitrogenoMin = 40.0;
-  static const double nitrogenoMax = 60.0;
-
-  /// Rango óptimo de Fósforo (P): 40 - 60 ppm
-  static const double fosforoMin = 40.0;
-  static const double fosforoMax = 60.0;
-
-  /// Rango óptimo de Potasio (K): 200 - 300 ppm
-  static const double potasioMin = 200.0;
-  static const double potasioMax = 300.0;
+// CORRECTO - alineado con los cortes reales del modelo
+  static const double nitrogenoMin = 19.0;
+  static const double nitrogenoMax = 54.0;
+  static const double fosforoMin = 16.0;
+  static const double fosforoMax = 59.0;
+  static const double potasioMin = 98.0;
+  static const double potasioMax = 204.0;
 
   /// Rango óptimo de Humedad (%)
   /// Nota: Ajusta si tu criterio es distinto.

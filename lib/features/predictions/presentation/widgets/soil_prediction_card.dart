@@ -38,7 +38,7 @@ class SoilPredictionCard extends StatelessWidget {
           children: [
             // Header
             const Text(
-              '🌱 Predicción de Nutrientes del Suelo',
+              '🌱 Datos Nutrientes del Suelo',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

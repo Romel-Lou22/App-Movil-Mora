@@ -90,11 +90,11 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
     // 🆕 Validar que hay parcela seleccionada
     if (parcelaProvider.parcelaSeleccionada != null) {
       final parcelaId = parcelaProvider.parcelaSeleccionada!.id;
-      debugPrint('🔮 [LOADING] Cargando predicciones para parcela: $parcelaId');
+      debugPrint('🔮 [LOADING] Cargando datos para parcela: $parcelaId');
 
       await provider.fetchPredictions(parcelaId);
 
-      debugPrint('✅ [LOADING] Predicciones cargadas exitosamente');
+      debugPrint('✅ [LOADING] Datos cargados exitosamente');
     } else {
       debugPrint('⚠️ [LOADING] No hay parcela seleccionada, omitiendo predicciones');
     }
@@ -174,7 +174,7 @@ class _DataLoadingScreenState extends State<DataLoadingScreen>
             future: () => _loadWeather(),
           ),
           LoadingTask(
-            name: 'Obteniendo predicciones',
+            name: 'Obteniendo datos de parcela',
             icon: Icons.insights,
             future: () => _loadPredictions(),
           ),

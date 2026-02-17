@@ -4,6 +4,7 @@ import '../../../../core/config/routes/app_routes.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../predictions/presentation/providers/prediction_provider.dart';
 import '../../../weather/presentation/providers/weather_provider.dart';
+import '../../../predictions/domain/entities/soil_prediction.dart';
 
 /// Card de preview de predicciones para el HomeScreen
 ///
@@ -19,7 +20,7 @@ class PredictionPreviewCard extends StatelessWidget {
         return InkWell(
           onTap: () {
             // Navegar al tab de predicciones
-            Navigator.pushNamed(context, AppRoutes.predictions);
+            //Navigator.pushNamed(context, AppRoutes.predictions);
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
@@ -269,13 +270,14 @@ class PredictionPreviewCard extends StatelessWidget {
         const SizedBox(height: 16),
 
         // humedad
+        // DESPUÉS
         _buildSummaryRow(
           icon: Icons.water_drop_outlined,
           iconColor: const Color(0xFF2196F3),
           label: 'Humedad',
           value: '${weather.humidity} %',
-          status: soil.humedadIsOptimal ? '✅' : '⚠️',
-          statusColor: soil.humedadIsOptimal ? AppColors.success : Colors.orange,
+          status: _humedadIsOptimal(weather.humidity.toDouble()) ? '✅' : '⚠️',
+          statusColor: _humedadIsOptimal(weather.humidity.toDouble()) ? AppColors.success : Colors.orange,
         ),
 
         const SizedBox(height: 16),
@@ -414,5 +416,9 @@ class PredictionPreviewCard extends StatelessWidget {
   }
 
   /// Footer con botón de acción
+///
 
+  bool _humedadIsOptimal(double humedad) {
+    return humedad >= SoilPrediction.humedadMin && humedad <= SoilPrediction.humedadMax;
+  }
 }
